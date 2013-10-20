@@ -1,0 +1,4616 @@
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -486,6 +486,29 @@ config ARCH_IXP4XX
+ 	help
+ 	  Support for Intel's IXP4XX (XScale) family of processors.
+ 
++config ARCH_KA2000
++	bool "KeyAsic KA2000"
++	select ARCH_HAS_CPUFREQ
++	select CPU_FREQ
++	select DEBUG_SECTION_MISMATCH
++	select CPU_ARM926T
++	select AUTO_ZRELADDR
++	select COMMON_CLK
++	select CLKSRC_MMIO
++	select GENERIC_CLOCKEVENTS
++	select SPARSE_IRQ
++	select DEBUG_LL
++	select SERIAL_8250
++	select SERIAL_8250_CONSOLE
++	select EARLY_PRINTK
++	select SPI
++	select SPI_BITBANG
++	select SPI_MASTER
++	select MTD
++	select MTD_M25P80
++	help
++	  Support for the KeyAsic KA2000 SoC
++
+ config ARCH_DOVE
+ 	bool "Marvell Dove"
+ 	select ARCH_REQUIRE_GPIOLIB
+--- /dev/null
++++ b/arch/arm/mach-ka2000/include/mach/timex.h
+@@ -0,0 +1,27 @@
++/*
++ * arch/arm/mach-ka2000/include/mach/timex.h
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#ifndef __ASM_ARCH_TIMEX_H
++#define __ASM_ARCH_TIMEX_H
++
++#include <mach/hardware.h>
++
++/* Do we need any drivers that depend on this? */
++#define CLOCK_TICK_RATE		not_provided  /* FIXME */
++
++#endif /* __ASM_ARCH_TIMEX_H */
+--- a/arch/arm/Makefile
++++ b/arch/arm/Makefile
+@@ -158,6 +158,7 @@ machine-$(CONFIG_ARCH_IOP13XX)		+= iop13
+ machine-$(CONFIG_ARCH_IOP32X)		+= iop32x
+ machine-$(CONFIG_ARCH_IOP33X)		+= iop33x
+ machine-$(CONFIG_ARCH_IXP4XX)		+= ixp4xx
++machine-$(CONFIG_ARCH_KA2000)		+= ka2000
+ machine-$(CONFIG_ARCH_KIRKWOOD)		+= kirkwood
+ machine-$(CONFIG_ARCH_KS8695)		+= ks8695
+ machine-$(CONFIG_ARCH_LPC32XX)		+= lpc32xx
+--- /dev/null
++++ b/arch/arm/mach-ka2000/Kconfig
+@@ -0,0 +1,16 @@
++if ARCH_KA2000
++
++config SOC_KA2000
++	bool
++	select CPU_ARM926T
++	select GENERIC_CLOCKEVENTS
++	select MULTI_IRQ_HANDLER
++	select SPARSE_IRQ
++	select MACH_KA2000_DT
++	select USE_OF
++	select SERIAL_8250
++	select ARM_ATAG_DTB_COMPAT
++
++endmenu
++
++endif
+--- /dev/null
++++ b/arch/arm/mach-ka2000/Makefile
+@@ -0,0 +1,8 @@
++#
++# Makefile for the linux kernel.
++#
++
++obj-y		:= setup.o timer.o irq.o spi.o board-evm.o ka2000-sdio.o clock.o cpuidle.o mmc.o
++obj-m		:=
++obj-n		:=
++obj-		:=
+--- /dev/null
++++ b/arch/arm/mach-ka2000/include/mach/hardware.h
+@@ -0,0 +1,15 @@
++/*
++ * arch/arm/mach-ka2000/include/mach/hardware.h
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef __ASM_ARCH_HARDWARE_H
++#define __ASM_ARCH_HARDWARE_H
++
++#include "ka2000_define.h"
++
++#endif
+--- /dev/null
++++ b/arch/arm/mach-ka2000/include/mach/ka2000_define.h
+@@ -0,0 +1,326 @@
++#ifndef __ASM_KA2000_DEFINE_H
++#define __ASM_KA2000_DEFINE_H
++
++
++#define KA_REGIF_BASE            0xA0000000			//old:REGIF_BASE
++#define KA_REGIF_SIZE            0x00100000			// rounded to 1MB page size.
++
++#define SYSTEM_BASE              KA_REGIF_BASE
++#define SYSTEM_CTRL_REG          SYSTEM_BASE
++#define CLK_DIV_REG              SYSTEM_BASE + 0x04
++
++#define SDRAM_BASE               0x00000000 + 0x00000000
++
++#define KA_SCU_BASE              KA_REGIF_BASE                   /* System Control Unit */
++#define KA_SSI_BASE              KA_REGIF_BASE + 0x1000
++#define KA_PWM_BASE              KA_REGIF_BASE + 0x2000
++#define KA_WDT_BASE              KA_REGIF_BASE + 0x3000
++#define KA_UART_BASE             KA_REGIF_BASE + 0x4000
++#define KA_GPIO0_BASE            KA_REGIF_BASE + 0x5000
++#define KA_INTC_BASE             KA_REGIF_BASE + 0x6000
++#define KA_DMA_BASE              KA_REGIF_BASE + 0x7000
++#define KA_SDRAM_CTRL_BASE       KA_REGIF_BASE + 0x8000
++#define KA_SDIO_BASE             KA_REGIF_BASE + 0x9000
++#define KA_SD_SWITCH_BASE        KA_REGIF_BASE + 0xa000
++#define KA_SD_CTRL_BASE          KA_REGIF_BASE + 0xb000
++#define KA_GPIO1_BASE            KA_REGIF_BASE + 0xc000
++
++#define KA2000_SSP_BASE_PHYS     KA_REGIF_BASE + 0x1000
++#define KA2000_UART_BASE_PHYS    KA_REGIF_BASE + 0x4000
++#define KA2000_SDIO_BASE_PHYS    KA_REGIF_BASE + 0x9000
++#define KA2000_SD_BASE_PHYS      KA_REGIF_BASE + 0xb000
++
++#ifndef __ASSEMBLY__
++#define KA2000_ADDR(x)		((u32 __iomem __force *)io_p2v(x))
++#define KA2000_ADDR64(x)	((u64 __iomem __force *)io_p2v(x))
++#else
++#define KA2000_ADDR(x)		(io_p2v(x))
++#endif
++#define KA2000_VA_TIMER		KA2000_ADDRESS(KA_PWM_BASE)
++
++#define KA2000_UART0_BASE        KA_UART_BASE
++
++/* scu */
++#define SCU_CLK_SRC_CTL		 KA_SCU_BASE + 0x00
++#define SCU_PLL_FREQ_SEL1	 KA_SCU_BASE + 0x04
++#define SCU_PLL_FREQ_SEL2	 KA_SCU_BASE + 0x08
++#define SCU_SYSTEM_CTL1		 KA_SCU_BASE + 0x0c
++#define SCU_SYSTEM_CTL2		 KA_SCU_BASE + 0x10
++#define SCU_SYSTEM_CTL3		 KA_SCU_BASE + 0x14
++
++/* ssi */
++#define SSI_BASE                 KA_SSI_BASE
++#define SSI_PRE                  SSI_BASE + 0x00
++#define SSI_CON                  SSI_BASE + 0x04
++#define SSI_STA                  SSI_BASE + 0x08
++#define SSI_TDAT                 SSI_BASE + 0x0c
++#define SSI_RDAT                 SSI_BASE + 0x10
++
++/* sdio */
++#define SDIO_BASE                KA_SDIO_BASE
++#define SDIO_CARD_BLOCK_SET_REG  SDIO_BASE  + 0x00
++#define SDIO_CTRL_REG            SDIO_BASE  + 0x04
++#define SDIO_CMD_ARGUMENT_REG    SDIO_BASE  + 0x08
++#define SDIO_SPECIAL_COMMAND_REG SDIO_BASE  + 0x0c
++#define SDIO_STATUS_REG          SDIO_BASE  + 0x10
++#define SDIO_ERROR_ENABLE_REG    SDIO_BASE  + 0x14
++#define SDIO_RESPONSE1_REG       SDIO_BASE  + 0x18
++#define SDIO_RESPONSE2_REG       SDIO_BASE  + 0x1c
++#define SDIO_RESPONSE3_REG       SDIO_BASE  + 0x20
++#define SDIO_RESPONSE4_REG       SDIO_BASE  + 0x24
++#define SDIO_BUF_TRAN_RESP_REG   SDIO_BASE  + 0x28
++#define SDIO_BUF_TRAN_CTRL_REG   SDIO_BASE  + 0x2c
++#define SDIO_DMA_SACH0_REG       SDIO_BASE  + 0x30
++#define SDIO_DMA_TCCH0_REG       SDIO_BASE  + 0x34
++#define SDIO_DMA_CTRCH0_REG      SDIO_BASE  + 0x38
++#define SDIO_reserved            SDIO_BASE  + 0x3c
++#define SDIO_DMA_DACH1_REG       SDIO_BASE  + 0x40
++#define SDIO_DMA_TCCH1_REG       SDIO_BASE  + 0x44
++#define SDIO_DMA_CTRCH1_REG      SDIO_BASE  + 0x48
++#define SDIO_DMA_INTS_REG        SDIO_BASE  + 0x4c
++#define SDIO_DMA_FIFO_STATUS_REG SDIO_BASE  + 0x50
++
++/* pwm */
++#define PWM_BASE                 KA_PWM_BASE
++#define PWM_TCFG0                PWM_BASE + 0x00
++#define PWM_TCFG1                PWM_BASE + 0x04
++#define PWM_TCON0                PWM_BASE + 0x08
++#define PWM_TCON1                PWM_BASE + 0x0c
++#define PWM_TCNTB0               PWM_BASE + 0x10
++#define PWM_TCMPB0               PWM_BASE + 0x14
++#define PWM_TCNTO0               PWM_BASE + 0x18
++#define PWM_TCNTB1               PWM_BASE + 0x40
++#define PWM_TCNTO1               PWM_BASE + 0x44
++#define PWM_TCNTB2               PWM_BASE + 0x48
++#define PWM_TCNTO2               PWM_BASE + 0x4c
++
++/* sd switch */
++#define SDSW_BASE           	 KA_SD_SWITCH_BASE
++#define SDSW_M1_CTRL0	 	 SDSW_BASE + 0x00
++#define SDSW_M2_CTRL0	 	 SDSW_BASE + 0x04
++#define SDSW_M1_STATUS	 	 SDSW_BASE + 0x08
++#define SDSW_M2_STATUS		 SDSW_BASE + 0x0c
++#define SDSW_READ_SWDAT	 	 SDSW_BASE + 0x18
++#define SDSW_SW_CTRL0	 	 SDSW_BASE + 0x1c
++#define SDSW_TEST_REG	 	 SDSW_BASE + 0x20
++#define SDSW_M1_PREV_CMD_REG	 SDSW_BASE + 0x30
++#define SDSW_M1_PREV_ARGU_REG	 SDSW_BASE + 0x34
++#define SDSW_M1_PREV_RSP_REG0	 SDSW_BASE + 0x38
++#define SDSW_M1_PREV_RSP_REG1	 SDSW_BASE + 0x3c
++#define SDSW_M1_CURR_CMD_REG	 SDSW_BASE + 0x40
++#define SDSW_M1_CURR_ARGU_REG	 SDSW_BASE + 0x44
++#define SDSW_M1_CURR_RSP_REG0	 SDSW_BASE + 0x48
++#define SDSW_M1_CURR_RSP_REG1	 SDSW_BASE + 0x4c
++#define SDSW_M1_CURR_RSP_REG2	 SDSW_BASE + 0x50
++#define SDSW_M1_CURR_RSP_REG3	 SDSW_BASE + 0x54
++#define SDSW_M1_CURR_RSP_REG4	 SDSW_BASE + 0x58
++#define SDSW_M1_CMD_FLG_REG0	 SDSW_BASE + 0x5c
++#define SDSW_M1_CMD_CRC_FLG_REG0 SDSW_BASE + 0x60
++#define SDSW_M1_CMD_FLG_REG1     SDSW_BASE + 0x64
++#define SDSW_M1_CMD_CRC_FLG_REG1 SDSW_BASE + 0x68
++#define SDSW_M1_CMD_FLG_REG2     SDSW_BASE + 0x6c
++#define SDSW_M1_CMD_CRC_FLG_REG2 SDSW_BASE + 0x70
++#define SDSW_M1_CMD_FLG_REG3     SDSW_BASE + 0x74
++#define SDSW_M1_CMD_CRC_FLG_REG3 SDSW_BASE + 0x78
++#define SDSW_BOMB_START_ADDR_REG SDSW_BASE + 0x80
++#define SDSW_BOMB_END_ADDR_REG   SDSW_BASE + 0x84
++#define SDSW_BOMB_Flag_ADDR_REG  SDSW_BASE + 0x88
++#define SDSW_BOMB_START_ADDR_REG2 SDSW_BASE + 0x180
++#define SDSW_BOMB_END_ADDR_REG2   SDSW_BASE + 0x184
++#define SDSW_BOMB_Flag_ADDR_REG2  SDSW_BASE + 0x188
++#define SDSW_M1_CID_REG0         SDSW_BASE + 0x8c
++#define SDSW_M1_CID_REG1         SDSW_BASE + 0x90
++#define SDSW_M1_CID_REG2         SDSW_BASE + 0x94
++#define SDSW_M1_CID_REG3         SDSW_BASE + 0x98
++#define SDSW_M1_RCA_REG          SDSW_BASE + 0x9c
++#define SDSW_M1_DSR_REG          SDSW_BASE + 0xa0
++#define SDSW_M1_CIC_REG          SDSW_BASE + 0xa4
++#define SDSW_M1_CSD_REG0         SDSW_BASE + 0xa8
++#define SDSW_M1_CSD_REG1         SDSW_BASE + 0xac
++#define SDSW_M1_CSD_REG2         SDSW_BASE + 0xb0
++#define SDSW_M1_CSD_REG3         SDSW_BASE + 0xb4
++#define SDSW_M1_CSR_REG          SDSW_BASE + 0xb8
++#define SDSW_M1_BLR_REG          SDSW_BASE + 0xbc
++#define SDSW_M1_EWBS_REG         SDSW_BASE + 0xc0
++#define SDSW_M1_EWBE_REG         SDSW_BASE + 0xc4
++#define SDSW_M1_SBW_REG          SDSW_BASE + 0xc8
++#define SDSW_M1_SWBEC_REG        SDSW_BASE + 0xcc
++#define SDSW_M1_OCR_REG          SDSW_BASE + 0xd0
++#define SDSW_M1_SCCD_REG         SDSW_BASE + 0xd4
++#define SDSW_M1_SSR_REG0         SDSW_BASE + 0xd8
++#define SDSW_M1_SSR_REG1         SDSW_BASE + 0xdc
++#define SDSW_M1_SSR_REG2         SDSW_BASE + 0xe0
++#define SDSW_M1_SSR_REG3         SDSW_BASE + 0xe4
++#define SDSW_M1_SCR_REG0         SDSW_BASE + 0xe8
++#define SDSW_M1_SCR_REG1         SDSW_BASE + 0xec
++#define SDSW_M1_SNWB_REG         SDSW_BASE + 0xf0
++#define SDSW_M1_BLOCK_LEN_REG    SDSW_BASE + 0xf4
++#define SDSW_M1_WDATA_TOUT_REG   SDSW_BASE + 0xf8
++#define SDSW_M1_RDATA_TOUT_REG   SDSW_BASE + 0xfc
++#define SDSW_DIRECT_START_TRANS_REG     SDSW_BASE + 0x100
++#define SDSW_DIRECT_CMD_INDEX_REG       SDSW_BASE + 0x104
++#define SDSW_DIRECT_CMD_ARGU_REG        SDSW_BASE + 0x108
++#define SDSW_DIRECT_CTRL_REG            SDSW_BASE + 0x10c
++#define SDSW_DIRECT_BLOCK_LENGTH_REG    SDSW_BASE + 0x110
++#define SDSW_DIRECT_WRITE_SW_CYCLE_REG  SDSW_BASE + 0x114
++#define SDSW_M1_CMD_FLAG_INTEN_REG0     SDSW_BASE + 0x120
++#define SDSW_M1_CMD_FLAG_INTEN_REG1     SDSW_BASE + 0x124
++#define SDSW_M1_CMD_FLAG_INTEN_REG2     SDSW_BASE + 0x128
++#define SDSW_M1_CMD_FLAG_INTEN_REG3     SDSW_BASE + 0x12c
++
++/* wdt */
++#define WDT_BASE                 KA_WDT_BASE
++#define WDT_CON                  WDT_BASE + 0x00
++#define WDT_DAT                  WDT_BASE + 0x04
++#define WDT_CNT                  WDT_BASE + 0x08
++#define WDT_CON_CONTER_EN        0x20
++
++/* gpio0 */
++#define GPIO0_BASE               KA_GPIO0_BASE		//old:GPIO_BASE
++#define GPIO_OEN                 GPIO0_BASE + 0x00
++#define GPIO_INPUT               GPIO0_BASE + 0x04
++#define GPIO_OUTPUT              GPIO0_BASE + 0x08
++#define GPIO_INT                 GPIO0_BASE + 0x0c
++#define GPIO_INT_CLR0            GPIO0_BASE + 0x10
++#define GPIO_INT_CLR1            GPIO0_BASE + 0x14
++#define GPIO_INT_CLR2            GPIO0_BASE + 0x18
++#define GPIO_INT_CLR3            GPIO0_BASE + 0x1c
++#define GPIO_INT_CLR4            GPIO0_BASE + 0x20
++#define GPIO_INT_CLR5            GPIO0_BASE + 0x24
++#define GPIO_INT_CLR6            GPIO0_BASE + 0x28
++#define GPIO_INT_CLR7            GPIO0_BASE + 0x2c
++
++/* gpio1 */
++#define GPIO1_BASE               KA_GPIO1_BASE
++#define GPO_OEN                  GPIO1_BASE + 0x00
++#define GPI_INPUT                GPIO1_BASE + 0x04
++#define GPO_OUTPUT               GPIO1_BASE + 0x08
++#define GPI_INT                  GPIO1_BASE + 0x0c
++#define GPI_INT_CLR0             GPIO1_BASE + 0x10
++#define GPI_INT_CLR1             GPIO1_BASE + 0x14
++#define GPI_INT_CLR2             GPIO1_BASE + 0x18
++#define GPI_INT_CLR3             GPIO1_BASE + 0x1c
++#define GPI_INT_CLR4             GPIO1_BASE + 0x20
++#define GPI_INT_CLR5             GPIO1_BASE + 0x24
++#define GPI_INT_CLR6             GPIO1_BASE + 0x28
++#define GPI_INT_CLR7             GPIO1_BASE + 0x2c
++
++// sdram base
++#define SDRAM_CTRL_BASE          KA_SDRAM_CTRL_BASE
++
++/* uart */
++#define KA_UART_RECV             KA_UART_BASE + 0x00
++#define KA_UART_THR              KA_UART_BASE + 0x00
++#define KA_UART_INTR             KA_UART_BASE + 0x04
++#define KA_UART_FCR              KA_UART_BASE + 0x08
++#define KA_UART_IIR              KA_UART_BASE + 0x08
++#define KA_UART_LCR              KA_UART_BASE + 0x0c
++#define KA_UART_MCR              KA_UART_BASE + 0x10
++#define KA_UART_LINE             KA_UART_BASE + 0x14
++#define KA_UART_MSR              KA_UART_BASE + 0x18
++#define KA_UART_RFST             KA_UART_BASE + 0x1c
++
++/*sd card */
++#define SDR_BASE                  KA_SD_CTRL_BASE
++#define SDR_Card_BLOCK_SET_REG    SDR_BASE + 0x00
++#define SDR_CTRL_REG              SDR_BASE + 0x04
++#define SDR_CMD_ARGUMENT_REG      SDR_BASE + 0x08
++#define SDR_SPECIAL_CTRL_REG      SDR_BASE + 0x0C	//old:SDR_ADDRESS_REG
++#define SDR_STATUS_REG            SDR_BASE + 0x10
++#define SDR_Error_Enable_REG      SDR_BASE + 0x14
++#define SDR_RESPONSE1_REG         SDR_BASE + 0x18
++#define SDR_RESPONSE2_REG         SDR_BASE + 0x1C
++#define SDR_RESPONSE3_REG         SDR_BASE + 0x20
++#define SDR_RESPONSE4_REG         SDR_BASE + 0x24
++#define SDR_DMA_TRAN_RESP_REG     SDR_BASE + 0x28
++#define SDR_BUF_TRAN_CTRL_REG     SDR_BASE + 0x2C
++
++#define SDR_DMA_SACH0_REG         SDR_BASE + 0x30
++#define SDR_DMA_TCCH0_REG         SDR_BASE + 0x34
++#define SDR_DMA_CTRCH0_REG        SDR_BASE + 0x38
++#define SDR_DMA_DACH1_REG         SDR_BASE + 0x40
++#define SDR_DMA_TCCH1_REG         SDR_BASE + 0x44
++#define SDR_DMA_CTRCH1_REG        SDR_BASE + 0x48
++#define SDR_DMA_INTS_REG          SDR_BASE + 0x4C
++#define SDR_DMA_FIFO_STATUS_REG   SDR_BASE + 0x50
++
++/* interrupt controller */
++#define INTC_BASE                 KA_INTC_BASE
++#define INTC_INTSRC1_ADDR         INTC_BASE + 0x00
++#define INTC_INTSRC2_ADDR         INTC_BASE + 0x04
++#define INTC_INTMOD1_ADDR         INTC_BASE + 0x08
++#define INTC_INTMOD2_ADDR         INTC_BASE + 0x0c
++#define INTC_INTMSK1_ADDR         INTC_BASE + 0x10
++#define INTC_INTMSK2_ADDR         INTC_BASE + 0x14
++#define INTC_INTPND1_ADDR         INTC_BASE + 0x18
++#define INTC_INTPND2_ADDR         INTC_BASE + 0x1c
++#define INTC_INTPRT1_ADDR         INTC_BASE + 0x20
++#define INTC_INTPRT2_ADDR         INTC_BASE + 0x24
++#define INTC_INTPRO1_ADDR         INTC_BASE + 0x28
++#define INTC_INTPRO2_ADDR         INTC_BASE + 0x2c
++#define INTC_INTCLR_ADDR          INTC_BASE + 0x30
++#define INTC_INTOFS_ADDR          INTC_BASE + 0x34
++
++#endif /* __ASM_KA2000_DEFINE_H */
++
++#ifndef KA2000_H
++#define KA2000_H
++
++#define _KA2000_DEBUG_ 0
++#define CONFIG_KA2000_CHIP_VERSION 0xD
++
++#define OSC_MHZ   24
++#if CONFIG_KA2000_CHIP_VERSION == 0xA
++#define HCLK_RATE   4
++#else
++#define HCLK_RATE   2
++#endif
++#define KA2000_OSC_CLOCK 24000000
++#define KA2000_UART_CLOCK KA2000_OSC_CLOCK
++#define KA2000_TIMER_CLOCK KA2000_OSC_CLOCK
++#define KA2000_PLL_CLOCK (KA2000_OSC_CLOCK * 8)
++#define KA2000_MHZ (KA2000_PLL_CLOCK / 1000000)
++#define UART_BAUD_RATE 38400
++
++
++//#define KA2000_PLL_CLOCK 12000000
++
++//------------------------------------------------------------------------------
++#define ka2000_set_gpio(value); { *(u32 *)(0xf5005008) = value; }
++#define KA_UARTC(ch);	*(volatile u32 __force *) (0x55000000 + 0xa0004000) = (ch);
++
++/* 12M or 24M mode */
++#define TIMER_PRESCALE_V (33)
++#define TIMER_INT_COUNT (100)
++#define TIMER_T1_MUX 0
++#define TIMER_T2_MUX 0
++#define TIMER_CLOCK_SOURCE_DIV (TIMER_PRESCALE_V)
++#define TIMER_CLOCK_EVENT_DIV  (TIMER_PRESCALE_V*50)
++
++#define TIMER_PERIOD   (0x1d4c)
++#define TIMER_PERIOD_2 0xffff
++
++#define ARCH_NR_IRQS      64
++#define IRQ_KA2000_UART    1
++#define IRQ_KA2000_TIMER1 22
++#define IRQ_KA2000_TIMER2 23
++#define IRQ_sd_buf_tran_finish_int       24
++#define IRQ_sd_data_bound_int            25
++#define IRQ_sd_tran_done_int             26
++#define IRQ_sd_cmd_done_int              27
++#define IRQ_sd_card_error_int            28
++#define IRQ_sd_dma_int                   29
++#define IRQ_sd_card_int                  30 // speculative
++#define IRQ_sdio_buf_tran_finish_int       32
++#define IRQ_sdio_data_bound_int            33
++#define IRQ_sdio_tran_done_int             34
++#define IRQ_sdio_cmd_done_int              35
++#define IRQ_sdio_card_error_int            36
++#define IRQ_sdio_dma_int                   37
++#define IRQ_sdio_card_int                  38
++
++#define KA2000_TIMER0_BASE 	(IO_PHYS + 0x2000)  //in pwm timer
++#define NUM_TIMERS          	2
++#define KA2000_WDOG_BASE   	(IO_PHYS + 0x3000)
++
++#endif
+--- /dev/null
++++ b/arch/arm/mach-ka2000/include/mach/irqs.h
+@@ -0,0 +1,242 @@
++/*
++ * KeyASIC Ka2000 interrupt controller definitions
++ *
++ *  Copyright (C) 2010 KeyASIC.
++ *
++ *  This program is free software; you can redistribute  it and/or modify it
++ *  under  the terms of  the GNU General  Public License as published by the
++ *  Free Software Foundation;  either version 2 of the  License, or (at your
++ *  option) any later version.
++ *
++ *  THIS  SOFTWARE  IS PROVIDED   ``AS  IS'' AND   ANY  EXPRESS OR IMPLIED
++ *  WARRANTIES,   INCLUDING, BUT NOT  LIMITED  TO, THE IMPLIED WARRANTIES OF
++ *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN
++ *  NO  EVENT  SHALL   THE AUTHOR  BE    LIABLE FOR ANY   DIRECT, INDIRECT,
++ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
++ *  NOT LIMITED   TO, PROCUREMENT OF  SUBSTITUTE GOODS  OR SERVICES; LOSS OF
++ *  USE, DATA,  OR PROFITS; OR  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
++ *  ANY THEORY OF LIABILITY, WHETHER IN  CONTRACT, STRICT LIABILITY, OR TORT
++ *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
++ *  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *  You should have received a copy of the  GNU General Public License along
++ *  with this program; if not, write  to the Free Software Foundation, Inc.,
++ *  675 Mass Ave, Cambridge, MA 02139, USA.
++ *
++ */
++#ifndef __ASM_ARCH_IRQS_H
++#define __ASM_ARCH_IRQS_H
++
++/* Base address */
++
++#define KA2000_ARM_INTC_BASE 0xa0006000
++
++/*add by kathy, this is for Trek2K */
++#define IRQ_WDT0                           0
++#define IRQ_UARTINT0                       1   //modify by kathy
++#define IRQ_SSI                            2
++#define IRQ_PWM0                           3
++#define IRQ_DMA                            4
++#define IRQ_EXT_INT                        5
++#define IRQ_IIC                            6
++#define IRQ_GPI0_0                         8
++#define IRQ_GPI0_1                         9
++#define IRQ_GPI0_2                         10
++#define IRQ_GPI0_3                         11
++#define IRQ_GPI0_4                         12
++#define IRQ_GPI0_5                         13
++#define IRQ_GPI0_6                         14
++#define IRQ_GPI0_7                         15
++#define IRQ_GPI1_0                         16
++#define IRQ_GPI1_1                         17
++#define IRQ_GPI1_2                         18
++#define IRQ_GPI1_3                         19
++#define IRQ_GPI1_4                         20
++#define IRQ_GPI1_5                         21
++#define IRQ_PWM_T1                         22
++#define IRQ_PWM_T2                         23
++#define IRQ_sdm_buf_tran_finish            24
++#define IRQ_sdm_data_bound_int             25
++#define IRQ_sdm_tran_done_int              26
++#define IRQ_sdm_cmd_done_int               27
++#define IRQ_sdm_card_error_int             28
++#define IRQ_sdm_dma_int                    29
++
++
++#define IRQ_sdio_buf_tran_finish_int       32
++#define IRQ_sdio_data_bound_int            33
++#define IRQ_sdio_tran_done_int             34
++#define IRQ_sdio_cmd_done_int              35
++#define IRQ_sdio_card_error_int            36
++#define IRQ_sdio_dma_int                   37
++#define IRQ_card_int                       38
++
++#define IRQ_switch_int0                    40
++#define IRQ_switch_int1                    41
++#define IRQ_switch_int2                    42
++#define IRQ_switch_int3                    43
++#define IRQ_switch_int4                    44
++#define IRQ_switch_int5                    45
++#define IRQ_switch_int6                    46
++#define IRQ_switch_int7                    47
++#define IRQ_switch_int8                    48
++#define IRQ_switch_int_b2_normal           50
++#define IRQ_switch_int_b2_sleep            51
++#define IRQ_switch_int12                   52
++#define IRQ_switch_int13                   53
++
++/*-----------------------*/
++
++#define IRQ_VDINT0       0
++#define IRQ_VDINT1       40
++#define IRQ_VDINT2       2
++#define IRQ_HISTINT      3
++#define IRQ_H3AINT       4
++#define IRQ_PRVUINT      5
++#define IRQ_RSZINT       6
++#define IRQ_VFOCINT      7
++#define IRQ_VENCINT      48
++#define IRQ_ASQINT       49
++#define IRQ_IMXINT       50
++#define IRQ_VLCDINT      51
++#define IRQ_USBINT       52
++#define IRQ_EMACINT      53
++
++
++
++#define IRQ_CCINT0       16
++#define IRQ_CCERRINT     17
++#define IRQ_TCERRINT0    18
++#define IRQ_TCERRINT     19
++#define IRQ_PSCIN        20
++
++#define IRQ_IDE          32    //modify by kathy
++#define IRQ_HPIINT       23
++#define IRQ_MBXINT       24
++#define IRQ_MBRINT       25
++#define IRQ_MMCINT       26
++#define IRQ_SDIOINT      27
++#define IRQ_MSINT        28
++#define IRQ_DDRINT       29
++#define IRQ_AEMIFINT     30
++#define IRQ_VLQINT       31
++#define IRQ_TINT0_TINT12 22    //modify by kathy
++#define IRQ_TINT0_TINT34 33
++#define IRQ_TINT1_TINT12 34
++#define IRQ_TINT1_TINT34 35
++#define IRQ_PWMINT0      36
++#define IRQ_PWMINT1      37
++#define IRQ_PWMINT2      38
++#define IRQ_I2C          39
++#define IRQ_UARTINT1     41
++#define IRQ_UARTINT2     42
++#define IRQ_SPINT0       43
++#define IRQ_SPINT1       44
++
++#define IRQ_DSP2ARM0     46
++#define IRQ_DSP2ARM1     47
++
++
++
++#define IRQ_GPIO0        8
++#define IRQ_GPIO1        9
++#define IRQ_GPIO2        10
++#define IRQ_GPIO3        11
++#define IRQ_GPIO4        12
++#define IRQ_GPIO5        13
++#define IRQ_GPIO6        14
++#define IRQ_GPIO7        15
++
++
++
++
++#define IRQ_GPIOBNK0     56
++#define IRQ_GPIOBNK1     57
++#define IRQ_GPIOBNK2     58
++#define IRQ_GPIOBNK3     59
++#define IRQ_GPIOBNK4     60
++#define IRQ_COMMTX       61
++#define IRQ_COMMRX       62
++#define IRQ_EMUINT       63
++
++#define KA2000_N_AINTC_IRQ	64
++#define KA2000_N_GPIO		1
++
++#define NR_IRQS		        64 //modify by kathy
++//#define NR_IRQS			(KA2000_N_AINTC_IRQ + KA2000_N_GPIO)   //mark by kathy
++
++/*
++#define KA2000_ARM_INTC_BASE 0x01C48000
++#define IRQ_VDINT0       0
++#define IRQ_VDINT1       1
++#define IRQ_VDINT2       2
++#define IRQ_HISTINT      3
++#define IRQ_H3AINT       4
++#define IRQ_PRVUINT      5
++#define IRQ_RSZINT       6
++#define IRQ_VFOCINT      7
++#define IRQ_VENCINT      8
++#define IRQ_ASQINT       9
++#define IRQ_IMXINT       10
++#define IRQ_VLCDINT      11
++#define IRQ_USBINT       12
++#define IRQ_EMACINT      13
++
++#define IRQ_CCINT0       16
++#define IRQ_CCERRINT     17
++#define IRQ_TCERRINT0    18
++#define IRQ_TCERRINT     19
++#define IRQ_PSCIN        20
++
++#define IRQ_IDE          22
++#define IRQ_HPIINT       23
++#define IRQ_MBXINT       24
++#define IRQ_MBRINT       25
++#define IRQ_MMCINT       26
++#define IRQ_SDIOINT      27
++#define IRQ_MSINT        28
++#define IRQ_DDRINT       29
++#define IRQ_AEMIFINT     30
++#define IRQ_VLQINT       31
++#define IRQ_TINT0_TINT12 32
++#define IRQ_TINT0_TINT34 33
++#define IRQ_TINT1_TINT12 34
++#define IRQ_TINT1_TINT34 35
++#define IRQ_PWMINT0      36
++#define IRQ_PWMINT1      37
++#define IRQ_PWMINT2      38
++#define IRQ_I2C          39
++#define IRQ_UARTINT0     40
++#define IRQ_UARTINT1     41
++#define IRQ_UARTINT2     42
++#define IRQ_SPINT0       43
++#define IRQ_SPINT1       44
++
++#define IRQ_DSP2ARM0     46
++#define IRQ_DSP2ARM1     47
++#define IRQ_GPIO0        48
++#define IRQ_GPIO1        49
++#define IRQ_GPIO2        50
++#define IRQ_GPIO3        51
++#define IRQ_GPIO4        52
++#define IRQ_GPIO5        53
++#define IRQ_GPIO6        54
++#define IRQ_GPIO7        55
++#define IRQ_GPIOBNK0     56
++#define IRQ_GPIOBNK1     57
++#define IRQ_GPIOBNK2     58
++#define IRQ_GPIOBNK3     59
++#define IRQ_GPIOBNK4     60
++#define IRQ_COMMTX       61
++#define IRQ_COMMRX       62
++#define IRQ_EMUINT       63
++
++#define KA2000_N_AINTC_IRQ	64
++#define KA2000_N_GPIO		71
++
++#define NR_IRQS			(KA2000_N_AINTC_IRQ + KA2000_N_GPIO)
++*/
++
++#define ARCH_TIMER_IRQ IRQ_PWM_T1 //IRQ_PWM0
++
++#endif /* __ASM_ARCH_IRQS_H */
+--- /dev/null
++++ b/arch/arm/mach-ka2000/include/mach/entry-macro.S
+@@ -0,0 +1,46 @@
++/*
++ * Low-level IRQ helper macros for KeyASIC KA2000-based platforms
++ *
++ */
++#include <mach/io.h>
++#include <mach/irqs.h>
++
++		.macro	disable_fiq
++		.endm
++
++		.macro  get_irqnr_preamble, base, tmp
++		ldr \base, =io_p2v(KA2000_ARM_INTC_BASE)
++		.endm
++
++		.macro  arch_ret_to_user, tmp1, tmp2
++		.endm
++
++		.macro	get_irqnr_and_base, irqnr, irqstat, base, tmp
++		ldr \irqstat, [\base, #0x18]     @ interrupt pending 1
++		mov \tmp, #0
++		mov \irqnr, #0
++		teq \irqstat, #0
++		beq 6f
++
++4:              teq \irqstat, #1
++                beq 7f
++
++5:		mov \irqstat, \irqstat, lsr #1
++		teq \irqstat, #1
++		addne \irqnr, #1
++		bne 5b
++
++		add \irqnr, #1
++                teq \irqstat, #0                  @irqstat=1
++		bne 7f
++
++6:		ldr \irqstat, [\base, #0x1c]      @ interrupt pending 2
++		cmp \irqstat, #0
++		movne \tmp, #32
++		bne 4b
++
++7:		add \irqnr, \tmp
++		.endm
++
++		.macro	irq_prio_table
++		.endm
+--- /dev/null
++++ b/arch/arm/mach-ka2000/board-evm.c
+@@ -0,0 +1,278 @@
++/*
++ * KeyASIC KA2000 EVM board support
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/types.h>
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/gpio.h>
++#include <linux/clk.h>
++#include <linux/of.h>
++#include <linux/of_irq.h>
++#include <linux/of_platform.h>
++#include <linux/serial_8250.h>
++#include <linux/mtd/mtd.h>
++#include <linux/mtd/partitions.h>
++#include <linux/spi/spi.h>
++#include <linux/spi/flash.h>
++
++#include <asm/setup.h>
++#include <asm/irq.h>
++#include <asm/mach/arch.h>
++#include <asm/mach/map.h>
++#include <asm/mach/irq.h>
++#include <asm/mach-types.h>
++
++#include <mach/io.h>
++
++#include "ka2000.h"
++#include "ka2000-sdio.h"
++
++static struct mtd_partition ka2000_spi_flash_partitions[] = {
++	{
++		.name   = "u-boot",
++		.offset = 0x000000,
++		.size   = 0x080000,
++	}, {
++		.name   = "rootfs", /* jffs2 */
++		.offset = 0x080000,
++		.size   = 0x180000,
++	}, {
++		.name   = "kernel",
++		.offset = 0x200000,
++		.size   = 0x300000,
++	}, {
++		.name	= "Ramdisk",
++		.offset = 0x500000,
++		.size	= 0x300000,
++	}, {
++		.name	= "JFFS2_Kernel_RFS",
++		.offset = 0x080000,
++		.size	= 0x780000,
++	}, {
++		.name	= "Kernel_RFS",
++		.offset = 0x200000,
++		.size	= 0x600000,
++	},
++};
++
++static struct flash_platform_data ka2000_spi_flashdata = {
++	.name="mx25l6405d",
++	.type="mx25l6405d",
++	.parts=ka2000_spi_flash_partitions,
++	.nr_parts=ARRAY_SIZE(ka2000_spi_flash_partitions),
++};
++
++static struct spi_board_info spi_nor_flash_info[] = {
++	{
++		.modalias	= "m25p80",
++		.platform_data	= &ka2000_spi_flashdata,
++		.max_speed_hz	= KA2000_OSC_CLOCK,
++		.bus_num	= 0,
++		.chip_select	= 0,
++	},
++};
++
++static struct resource ka2000_uart_resources = {
++	.start	= KA2000_UART_BASE_PHYS,
++	.end	= KA2000_UART_BASE_PHYS + 0x0fff,
++	.flags	= IORESOURCE_MEM,
++};
++
++static struct plat_serial8250_port ka2000_uart_data[] = {
++	{
++		.mapbase	= KA2000_UART_BASE_PHYS,
++		.membase	= (char *)io_p2v(KA2000_UART_BASE_PHYS),
++		.irq		= IRQ_KA2000_UART,
++		.flags		= UPF_BOOT_AUTOCONF,
++		.iotype		= UPIO_MEM,
++		.regshift	= 2,
++		.uartclk	= KA2000_UART_CLOCK,
++	},
++	{ },
++};
++
++static struct platform_device ka2000_uart = {
++	.name		= "serial8250",
++	.id		= PLAT8250_DEV_PLATFORM,
++	.dev			= {
++		.platform_data	= ka2000_uart_data,
++	},
++	.num_resources	= 1,
++	.resource	= &ka2000_uart_resources,
++};
++
++static struct ka2000_ssp_spi_info ka2000_ssp_spi_data = {
++	.flash_device = spi_nor_flash_info,
++};
++
++static struct resource ka2000_ssp_spi_resources[] = {
++	{
++		.start	= KA2000_SSP_BASE_PHYS,
++		.end	= KA2000_SSP_BASE_PHYS + 0x0fff,
++		.flags	= IORESOURCE_MEM,
++	},
++};
++
++static struct platform_device ka2000_ssp_spi  = {
++	.name		= "ka2000_ssp_spi",
++	.id		= -1,
++	.num_resources	= ARRAY_SIZE(ka2000_ssp_spi_resources),
++	.resource	= ka2000_ssp_spi_resources,
++	.dev			= {
++		.platform_data	= &ka2000_ssp_spi_data,
++	},
++};
++
++static struct resource ka2000_sdio_resources[] = {
++	{
++		.start	= KA2000_SDIO_BASE_PHYS,
++		.end	= KA2000_SDIO_BASE_PHYS + 0x0fff,
++		.flags	= IORESOURCE_MEM,
++	}, {
++		.start = IRQ_sdio_buf_tran_finish_int, // 32,
++		.end   = IRQ_sdio_buf_tran_finish_int, // 32,
++		.flags = IORESOURCE_IRQ,
++	}, {
++		.start = IRQ_sdio_data_bound_int, // 33,
++		.end   = IRQ_sdio_data_bound_int, // 33,
++		.flags = IORESOURCE_IRQ,
++	}, {
++		.start = IRQ_sdio_tran_done_int, // 34,
++		.end   = IRQ_sdio_tran_done_int, // 34,
++		.flags = IORESOURCE_IRQ,
++	}, {
++		.start = IRQ_sdio_cmd_done_int, // 35,
++		.end   = IRQ_sdio_cmd_done_int, // 35,
++		.flags = IORESOURCE_IRQ,
++	}, {
++		.start = IRQ_sdio_card_error_int, // 36,
++		.end   = IRQ_sdio_card_error_int, // 36,
++		.flags = IORESOURCE_IRQ,
++	}, {
++		.start = IRQ_sdio_dma_int, // 37,
++		.end   = IRQ_sdio_dma_int, // 37,
++		.flags = IORESOURCE_IRQ,
++	}, {
++		.start = IRQ_sdio_card_int, // 38,
++		.end   = IRQ_sdio_card_int, // 38,
++		.flags = IORESOURCE_IRQ,
++	},
++};
++
++static struct resource ka2000_sd_resources[] = {
++	{
++		.start	= KA2000_SD_BASE_PHYS,
++		.end	= KA2000_SD_BASE_PHYS + 0x0fff,
++		.flags	= IORESOURCE_MEM,
++	}, {
++		.start = IRQ_sd_buf_tran_finish_int, // 32,
++		.end   = IRQ_sd_buf_tran_finish_int, // 32,
++		.flags = IORESOURCE_IRQ,
++	}, {
++		.start = IRQ_sd_data_bound_int, // 33,
++		.end   = IRQ_sd_data_bound_int, // 33,
++		.flags = IORESOURCE_IRQ,
++	}, {
++		.start = IRQ_sd_tran_done_int, // 34,
++		.end   = IRQ_sd_tran_done_int, // 34,
++		.flags = IORESOURCE_IRQ,
++	}, {
++		.start = IRQ_sd_cmd_done_int, // 35,
++		.end   = IRQ_sd_cmd_done_int, // 35,
++		.flags = IORESOURCE_IRQ,
++	}, {
++		.start = IRQ_sd_card_error_int, // 36,
++		.end   = IRQ_sd_card_error_int, // 36,
++		.flags = IORESOURCE_IRQ,
++	}, {
++		.start = IRQ_sd_dma_int, // 37,
++		.end   = IRQ_sd_dma_int, // 37,
++		.flags = IORESOURCE_IRQ,
++	}, {
++		.start = IRQ_sd_card_int, // 38,
++		.end   = IRQ_sd_card_int, // 38,
++		.flags = IORESOURCE_IRQ,
++	},
++};
++
++static struct ka_sdio_platdata ka_sdio_platdata = {
++	.max_width	= 4,
++	.clocks 	= NULL,
++	.irq_num	= 7,
++};
++
++static u64 ka_sdio_dmamask = 0xffffffff;
++
++static struct platform_device ka2000_sd_mci  = {
++	.name		= "ka2000_mmc",
++	.id		= 0,
++	.num_resources	= ARRAY_SIZE(ka2000_sd_resources),
++	.resource	= ka2000_sd_resources,
++	.dev		= {
++		.dma_mask		= &ka_sdio_dmamask,
++		.coherent_dma_mask	= 0xffffffff,
++		.platform_data		= &ka_sdio_platdata,
++	},
++};
++
++static struct platform_device ka2000_sdio_mci  = {
++	.name		= "ka2000_mmc",
++	.id		= 1,
++	.num_resources	= ARRAY_SIZE(ka2000_sdio_resources),
++	.resource	= ka2000_sdio_resources,
++	.dev		= {
++		.dma_mask		= &ka_sdio_dmamask,
++		.coherent_dma_mask	= 0xffffffff,
++		.platform_data		= &ka_sdio_platdata,
++	},
++};
++
++
++static struct platform_device *ka2000_evm_devices[] __initdata = {
++	&ka2000_uart,
++	&ka2000_ssp_spi,
++	&ka2000_sd_mci,
++	&ka2000_sdio_mci,
++};
++
++static void __init ka2000_update_devices(void)
++{
++	struct clk *hclk = clk_get(NULL, "HCLK");
++	u32 hclk_rate;
++	if (IS_ERR(hclk)) {
++		printk(KERN_WARNING "Could not get HCLK, failed to update device clocks.\n");
++		return;
++	}
++	hclk_rate = clk_get_rate(hclk);
++	clk_put(hclk);
++	printk(KERN_INFO "Updating board devices with hclk=%dKHz\n", hclk_rate / 1000);
++	ka2000_uart_data[0].uartclk = hclk_rate;
++}
++
++static void __init ka2000_evm_init(void)
++{
++	printk("ka2000_evm_init\n");
++	ka2000_sys_init();
++	ka2000_init_clocks();
++	ka2000_update_devices();
++
++	platform_add_devices(ka2000_evm_devices, ARRAY_SIZE(ka2000_evm_devices));
++	//spi_register_board_info(spi_nor_flash_info, ARRAY_SIZE(spi_nor_flash_info));
++	printk("ka2000_evm_init done\n");
++}
++
++MACHINE_START(KA2000_EVM, "KeyASIC Ka2000 EVM")
++	.map_io		= ka2000_map_io,
++	.init_early	= ka2000_init_early,
++	.init_irq	= ka2000_init_irq,
++	.init_time	= ka2000_init_time,
++	.init_machine	= ka2000_evm_init,
++	.nr_irqs	= ARCH_NR_IRQS,
++	.restart	= ka2000_restart,
++MACHINE_END
+--- /dev/null
++++ b/arch/arm/mach-ka2000/include/mach/io.h
+@@ -0,0 +1,40 @@
++/*
++ * KeyASIC Ka2000 IO address definitions
++ *
++ * Copied from include/asm/arm/arch-omap/io.h
++ *
++ * 2007 (c) MontaVista Software, Inc. This file is licensed under
++ * the terms of the GNU General Public License version 2. This program
++ * is licensed "as is" without any warranty of any kind, whether express
++ * or implied.
++ */
++#ifndef __ASM_ARCH_IO_H
++#define __ASM_ARCH_IO_H
++
++/*  -> Virtual IO = 0xfe000000 */
++#define IO_PHYS		0xa0000000
++#define IO_OFFSET	0x5e000000
++#define IO_SIZE		0x00100000
++
++#define IO_VIRT		(IO_PHYS + IO_OFFSET)
++#define io_v2p(va)	((va) - IO_OFFSET)
++#define io_p2v(pa)	((pa) + IO_OFFSET)
++
++/*
++ * Functions to access the KeyASIC Ka2000 IO region
++ *
++ * NOTE: - Use ka2000_read/write[bwl] for physical register addresses
++ *	 - Use __raw_read/write[bwl]() for virtual register addresses
++ *	 - Use IO_ADDRESS(phys_addr) to convert registers to virtual addresses
++ *	 - DO NOT use hardcoded virtual addresses to allow changing the
++ *	   IO address space again if needed
++ */
++#define ka2000_readb(a)	__raw_readb(IO_ADDRESS(a))
++#define ka2000_readw(a)	__raw_readw(IO_ADDRESS(a))
++#define ka2000_readl(a)	__raw_readl(IO_ADDRESS(a))
++
++#define ka2000_writeb(v, a)	__raw_writeb(v, IO_ADDRESS(a))
++#define ka2000_writew(v, a)	__raw_writew(v, IO_ADDRESS(a))
++#define ka2000_writel(v, a)	__raw_writel(v, IO_ADDRESS(a))
++
++#endif /* __ASM_ARCH_IO_H */
+--- a/arch/arm/tools/mach-types
++++ b/arch/arm/tools/mach-types
+@@ -190,7 +190,7 @@ palmtx			MACH_PALMTX		PALMTX			885
+ s3c2413			MACH_S3C2413		S3C2413			887
+ wg302v2			MACH_WG302V2		WG302V2			890
+ omap_2430sdp		MACH_OMAP_2430SDP	OMAP_2430SDP		900
+-davinci_evm		MACH_DAVINCI_EVM	DAVINCI_EVM		901
++ka2000_evm		MACH_KA2000_EVM		KA2000_EVM		901
+ palmz72			MACH_PALMZ72		PALMZ72			904
+ nxdb500			MACH_NXDB500		NXDB500			905
+ apf9328			MACH_APF9328		APF9328			906
+--- a/arch/arm/boot/dts/Makefile
++++ b/arch/arm/boot/dts/Makefile
+@@ -62,7 +62,7 @@ dtb-$(CONFIG_ARCH_HIGHBANK) += highbank.
+ 	ecx-2000.dtb
+ dtb-$(CONFIG_ARCH_INTEGRATOR) += integratorap.dtb \
+ 	integratorcp.dtb
+-dtb-$(CONFIG_ARCH_LPC32XX) += ea3250.dtb phy3250.dtb
++dtb-$(CONFIG_ARCH_KA2000) += ka2000-evm.dtb
+ dtb-$(CONFIG_ARCH_KIRKWOOD) += kirkwood-cloudbox.dtb \
+ 	kirkwood-dns320.dtb \
+ 	kirkwood-dns325.dtb \
+@@ -88,6 +88,7 @@ dtb-$(CONFIG_ARCH_KIRKWOOD) += kirkwood-
+ 	kirkwood-ts219-6281.dtb \
+ 	kirkwood-ts219-6282.dtb \
+ 	kirkwood-openblocks_a6.dtb
++dtb-$(CONFIG_ARCH_LPC32XX) += ea3250.dtb phy3250.dtb
+ dtb-$(CONFIG_ARCH_MARCO) += marco-evb.dtb
+ dtb-$(CONFIG_ARCH_MSM) += msm8660-surf.dtb \
+ 	msm8960-cdp.dtb
+--- /dev/null
++++ b/arch/arm/mach-ka2000/setup.c
+@@ -0,0 +1,83 @@
++/*
++ * Under GPLv2
++ */
++
++#include <linux/module.h>
++#include <linux/io.h>
++#include <linux/mm.h>
++#include <linux/pm.h>
++#include <linux/of_address.h>
++#include <linux/pinctrl/machine.h>
++#include <linux/time.h>
++
++#include <asm/setup.h>
++#include <asm/system_misc.h>
++#include <asm/mach/map.h>
++#include <asm/mach/time.h>
++
++#include <mach/hardware.h>
++#include <mach/io.h>
++
++#include "ka2000.h"
++
++#define WDT_REG(x) KA2000_ADDR(WDT_BASE + x)
++#define WDTCON		WDT_REG(0x0)
++#define WDTDAT		WDT_REG(0x4)
++#define WDTCNT		WDT_REG(0x8)
++
++static struct map_desc ka2000_io_desc[] __initdata = {
++	{	/* Peripheral IO space */
++		.virtual	= (unsigned long)io_p2v(KA_REGIF_BASE),
++		.pfn		= __phys_to_pfn(KA_REGIF_BASE),
++		.length		= KA_REGIF_SIZE,
++		.type		= MT_DEVICE
++	},
++};
++
++void __init ka2000_map_io(void)
++{
++	early_print("ka2000_map_io\n");
++	iotable_init(ka2000_io_desc, ARRAY_SIZE(ka2000_io_desc));
++}
++
++static void ka2000_pm_idle_noop(void)
++{
++	// FIXME: Does not wake up from arm wait for interrupt state.
++	// Looks like the PWM block is not clocked during sleep?
++	// Waking up by MMC interrupts works fine.
++}
++
++void __init ka2000_init_early(void)
++{
++	early_print("ka2000_init_early\n");
++	arm_pm_idle = ka2000_pm_idle_noop;
++	ka2000_early_init_clocks();
++}
++
++void __init ka2000_of_init(void)
++{
++}
++
++void __init ka2000_dt_init_early(void)
++{
++}
++
++void __init ka2000_initialize(unsigned long main_clock)
++{
++	printk(KERN_INFO "%s\n", __func__);
++}
++
++void ka2000_restart(const char *cmd)
++{
++	printk(KERN_WARNING "%s\n", __func__);
++	*WDTDAT = *WDTCNT = 0x1000;
++	barrier();
++	*WDTCON = 0xffffffff;
++	barrier();
++	for (;;);
++}
++
++void __init ka2000_sys_init(void)
++{
++	printk(KERN_INFO "%s\n", __func__);
++}
+--- /dev/null
++++ b/arch/arm/boot/dts/ka2000-evm.dts
+@@ -0,0 +1,21 @@
++/*
++ * ka2000-evm.dts - Device Tree file for KeyAsic KA2000 reference board
++ */
++/dts-v1/;
++/include/ "ka2000.dtsi"
++
++/ {
++	model = "Atmel KA2000 EVM";
++	compatible = "keyasic,ka2000", "keyasic,ka2000-evm";
++
++	clocks {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		ranges;
++
++		main_clock: clock@0 {
++			compatible = "keyasic,osc", "fixed-clock";
++			clock-frequency = <24000000>;
++		};
++	};
++};
+--- /dev/null
++++ b/arch/arm/boot/dts/ka2000.dtsi
+@@ -0,0 +1,97 @@
++/*
++ * ka2000.dtsi - Device Tree Include file for KA2000 family SoC
++ *
++ * Licensed under GPLv2 only.
++ */
++
++/include/ "skeleton.dtsi"
++
++/ {
++	model = "KeyAsic KA2000 family SoC";
++	compatible = "keyasic,ka2000";
++	/* interrupt-parent = <&aic>; */
++
++	aliases {
++		serial0 = &dbgu;
++	};
++	chosen {
++		bootargs = "console=ttyS0,38400";
++	};
++
++	cpus {
++		cpu@0 {
++			compatible = "arm,arm926ejs";
++		};
++	};
++
++	memory {
++		reg = <0x00000000 0x02000000>;
++	};
++
++	scu@a0000000 {
++		compatible = "keyasic,ka2000-scu";
++		interrupt-controller;
++		reg = <0xa0000000 0x1000>;
++	};
++
++	spi@a0001000 {
++		compatible = "keyasic,ka2000-spi";
++		reg = <0xa0001000 0x1000>;
++	};
++
++	timer@a0002000 {
++		compatible = "keyasic,ka2000-timer";
++		reg = <0xa0002000 0x1000>;
++	};
++
++	watchdog@a0003000 {
++		compatible = "keyasic,ka2000-wdt";
++		reg = <0xa0003000 0x1000>;
++	};
++
++	dbgu: serial@a0004000 {
++		compatible = "keyasic,ka2000-uart";
++		reg = <0xa0004000 0x1000>;
++		reg-shift = <2>;
++	};
++
++	gpio0: gpio@a0005000 {
++		compatible = "keyasic,ka2000-gpio";
++		reg = <0xa0005000 0x1000>;
++	};
++
++	intc: interrupt-controller@a0006000 {
++		compatible = "keyasic,ka2000-intc";
++		reg = <0xa0006000 0x1000>;
++	};
++
++	dma@a0007000 {
++		compatible = "keyasic,ka2000-dma";
++		reg = <0xa0007000 0x1000>;
++	};
++
++	ramc@a0008000 {
++		compatible = "keyasic,ka2000-sdramc";
++		reg = <0xa0008000 0x1000>;
++	};
++
++	mmc0: mmc@a0009000 {
++		compatible = "keyasic,ka2000-hsmci";
++		reg = <0xa0009000 0x1000>;
++	};
++
++	sdwitch@a000a000 {
++		compatible = "keyasic,ka2000-sdswitch";
++		reg = <0xa000a000 0x1000>;
++	};
++
++	mmc1: mmc@a000b000 {
++		compatible = "keyasic,ka2000-hsmci";
++		reg = <0xa000b000 0x1000>;
++	};
++
++	gpio1: gpio@a000c000 {
++		compatible = "keyasic,ka2000-gpio";
++		reg = <0xa000c000 0x1000>;
++	};
++};
+--- /dev/null
++++ b/arch/arm/mach-ka2000/include/mach/debug-macro.S
+@@ -0,0 +1,10 @@
++#include <mach/hardware.h>
++#include <mach/io.h>
++
++	.macro	addruart, rp, rv, tmp
++	ldr	\rp, =KA_UART_BASE			@ physical base address
++	ldr	\rv, =io_p2v(KA_UART_BASE)		@ virtual base address
++	.endm
++
++#define UART_SHIFT 2
++#include <asm/hardware/debug-8250.S>
+--- /dev/null
++++ b/arch/arm/mach-ka2000/Makefile.boot
+@@ -0,0 +1,8 @@
++# Note: the following conditions must always be true:
++#   ZRELADDR == virt_to_phys(TEXTADDR)
++#   PARAMS_PHYS must be within 4MB of ZRELADDR
++#   INITRD_PHYS must be in RAM
++
++   zreladdr-y	+= 0x00208000
++params_phys-y	:= 0x00200100
++initrd_phys-y	:= 0x00400000
+--- /dev/null
++++ b/arch/arm/mach-ka2000/include/mach/uncompress.h
+@@ -0,0 +1,34 @@
++/*
++ * This file is licensed under the terms of the GNU General Public
++ * License version 2.  This program is licensed "as is" without any
++ * warranty of any kind, whether express or implied.
++ */
++
++#include <mach/hardware.h>
++
++#define UART_THR ((volatile unsigned char *)(KA_UART_BASE + 0x0))
++#define UART_LSR ((volatile unsigned char *)(KA_UART_BASE + 0x14))
++
++#define LSR_THRE	0x20
++
++static void putc(const char c)
++{
++	int i;
++
++	for (i = 0; i < 0x1000; i++) {
++		/* Transmit fifo not full? */
++		if (*UART_LSR & LSR_THRE)
++			break;
++	}
++
++	*UART_THR = c;
++}
++
++static void flush(void)
++{
++}
++
++/*
++ * Nothing to do.
++ */
++#define arch_decomp_setup()
+--- /dev/null
++++ b/arch/arm/mach-ka2000/irq.c
+@@ -0,0 +1,82 @@
++/*
++ * Interrupt handler for KeyASIC Ka2000 boards.
++ *
++ * Copyright (C) 2013 KeyASIC.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/interrupt.h>
++#include <linux/irq.h>
++#include <linux/io.h>
++
++#include <mach/hardware.h>
++#include <mach/io.h>
++#include <asm/mach/irq.h>
++#include "ka2000.h"
++
++#define INTC_REG(x) KA2000_ADDR(INTC_BASE + x)
++#define INTC_REG64(x) KA2000_ADDR64(INTC_BASE + x)
++#define SRC	INTC_REG64(0x00)
++#define MODE	INTC_REG64(0x08)
++#define MASK	INTC_REG64(0x10)
++#define PEND	INTC_REG64(0x18)
++#define PRIO	INTC_REG64(0x20)
++#define PRO	INTC_REG64(0x28)
++#define CLEAR	INTC_REG(0x30)
++#define OFFSET	INTC_REG(0x34)
++
++static void ka2000_irq_ack(struct irq_data *d)
++{
++	*PEND = (u64)1 << d->irq;
++	*CLEAR = 0;
++}
++
++static void ka2000_irq_mask(struct irq_data *d)
++{
++	*MASK |= (u64)1 << d->irq;
++}
++
++static void ka2000_irq_unmask(struct irq_data *d)
++{
++	*MASK &= ~((u64)1 << d->irq);
++}
++
++static struct irq_chip ka2000_irq_chip = {
++	.name		= "KA2000",
++	.irq_ack	= ka2000_irq_ack,
++	.irq_mask	= ka2000_irq_mask,
++	.irq_unmask	= ka2000_irq_unmask,
++};
++
++
++void __init ka2000_init_irq(void)
++{
++	int i = 0;
++
++	early_printk("ka2000_init_irq\n");
++
++	/* Disable all interrupts */
++	*MASK = ~0;
++
++	/* Ack all still pending interrupts */
++	*PEND = ~0;
++	*CLEAR = 0;
++
++	/* Route all sources to IRQ instead of FIQ */
++	*PRIO = 0;
++
++        /* Default to all level triggered */
++	for(i = 0; i < ARCH_NR_IRQS; i++) {
++		irq_set_chip_and_handler(i, &ka2000_irq_chip,
++					 handle_level_irq);
++		set_irq_flags(i, IRQF_VALID);
++	}
++
++	/* Test: Enable all interrupts */
++	*MASK = 0;
++}
+--- /dev/null
++++ b/arch/arm/mach-ka2000/ka2000.h
+@@ -0,0 +1,31 @@
++#ifndef KA2000_SETUP_H
++#define KA2000_SETUP_H
++
++#include <linux/reboot.h>
++
++struct ka2000_ssp_spi_info {
++	struct spi_board_info *flash_device;
++};
++
++struct ka2000_clk_state {
++	u32 ctl;
++	u32 sys1;
++};
++
++extern void ka2000_map_io(void);
++extern void ka2000_sys_init(void);
++extern void ka2000_init_irq(void);
++extern void ka2000_init_time(void);
++extern void ka2000_init_early(void);
++extern void ka2000_restart(const char *cmd);
++
++extern void ka2000_dt_init_early(void);
++extern void ka2000_of_init(void);
++
++extern void ka2000_early_init_clocks(void);
++extern void ka2000_init_clocks(void);
++extern void ka2000_pm_idle(void);
++
++extern int timer_debug;
++
++#endif
+--- /dev/null
++++ b/arch/arm/mach-ka2000/timer.c
+@@ -0,0 +1,228 @@
++/*
++ * Timer is similar to S3C2440, with slight differences:
++ * Three timers, T0, T1, T2
++ *   T0 for buzzer pwm, T1&T2 available.
++ * Init T2:
++ *   TCNTB2 = 0xa0002048 = 0xffff      // reload value
++ *   TCON1 = 0xa000200c = 0x00000005  // T2 enable, with autoreload (interrupt 23)
++ * Init T1:
++ *   TCNTB1 = 0xa0002040 = 0xffff
++ *   TCON0 = 0xa0002008 = 0x00500000  // T1 enable, with autoreload (interrupt 22)
++ * Ack T2 interrupt:
++ *   TCFG1 = 0xa0002004 = 0x02000000
++ *   TCFG1 = 0xa0002004 = 0x00000000
++ */
++
++#include <linux/clockchips.h>
++#include <linux/clocksource.h>
++#include <linux/interrupt.h>
++#include <linux/irq.h>
++#include <asm/sched_clock.h>
++#include <mach/hardware.h>
++#include <mach/io.h>
++#include "ka2000.h"
++
++#define WDT_REG(x) KA2000_ADDR(WDT_BASE + x)
++#define WDTCON		WDT_REG(0x0)
++#define WDTDAT		WDT_REG(0x4)
++#define WDTCNT		WDT_REG(0x8)
++
++#define PWM_REG(x) KA2000_ADDR(PWM_BASE + x)
++#define TCFG0                PWM_REG(0x00)
++#define   T1T2_PRESC_MASK    0x00ff0000
++#define   T1T2_PRESC_SHIFT   16
++#define TCFG1                PWM_REG(0x04)
++#define   T2_ACK             0x02000000
++#define   T1_ACK             0x01000000
++#define   T0_ACK             0x00100000
++#define   T1_DIV2            0x00000000
++#define   T1_DIV4            0x00000100
++#define   T1_DIV8            0x00000200
++#define   T1_DIV16           0x00000300
++#define   T2_DIV2            0x00000000
++#define   T2_DIV4            0x00000400
++#define   T2_DIV8            0x00000800
++#define   T2_DIV16           0x00000c00
++#define TCON0                PWM_REG(0x08)
++#define   T0_ENABLE          0x00000001
++#define   T0_AUTORELOAD      0x00000008
++#define   T1_ENABLE          0x00100000
++#define   T1_LOAD            0x00200000
++#define   T1_AUTORELOAD      0x00400000
++#define TCON1                PWM_REG(0x0c)
++#define   T2_ENABLE          0x00000001
++#define   T2_LOAD            0x00000002
++#define   T2_AUTORELOAD      0x00000004
++#define TCNTB0               PWM_REG(0x10)
++#define TCMPB0               PWM_REG(0x14)
++#define TCNTO0               ((volatile u32*)PWM_REG(0x18))
++#define TCNTB1               PWM_REG(0x40)
++#define TCNTO1               ((volatile u32*)PWM_REG(0x44))
++#define TCNTB2               PWM_REG(0x48)
++#define TCNTO2               ((volatile u32*)PWM_REG(0x4c))
++
++#define INTC_REG(x) KA2000_ADDR(INTC_BASE + x)
++#define INTC_REG64(x) KA2000_ADDR64(INTC_BASE + x)
++#define PEND	INTC_REG64(0x18)
++
++static u32 notrace ka2000_read_sched_clock(void);
++
++static enum clock_event_mode ka2000_timer1_mode = CLOCK_EVT_MODE_SHUTDOWN;
++
++static void ka2000_timer_ack(u32 mask)
++{
++	u32 tcfg1;
++
++	/* clear pending interrupt */
++	tcfg1 = *TCFG1 & ~mask;
++	*TCFG1 = tcfg1 | mask;
++	barrier();
++	*TCFG1 = tcfg1;
++}
++
++int timer_debug = 0;
++
++static irqreturn_t ka2000_timer1_interrupt(int irq, void *dev_id)
++{
++	struct clock_event_device *evt = dev_id;
++
++	if (timer_debug) {
++		printk(KERN_INFO "%s\n", __func__);
++	}
++
++	if (ka2000_timer1_mode == CLOCK_EVT_MODE_ONESHOT) {
++		*TCON0 |= T1_LOAD;
++		*TCFG1 |= T1_ACK;
++		printk(KERN_INFO "timer1 irq handled\n");
++	} else {
++		ka2000_timer_ack(T1_ACK);
++	}
++	evt->event_handler(evt);
++
++	return IRQ_HANDLED;
++}
++
++static int ka2000_set_next_event_t1(unsigned long delta,
++    struct clock_event_device *dev)
++{
++	u32 tcon0 = *TCON0;
++	WARN_ON(delta == 0);
++
++	printk(KERN_INFO "set_next_event(%ld)\n", delta);
++
++	*TCNTB1 = delta;
++	*TCON0 = tcon0 | T1_LOAD;
++	barrier();
++	*TCFG1 &= ~T1_ACK;  /* enable timer1 irq */
++	barrier();
++	*TCON0 = tcon0 | T1_ENABLE;
++	return 0;
++}
++
++#define ka2000_prescaler 240
++#define ka2000_clockevent_t1_div (KA2000_TIMER_CLOCK / ka2000_prescaler / 2 / HZ)
++#define ka2000_clockevent_t1_freq (KA2000_TIMER_CLOCK / ka2000_prescaler / 2 / ka2000_clockevent_t1_div)
++#define ka2000_clocksource_freq (KA2000_TIMER_CLOCK / ka2000_prescaler / 16)
++#define ka2000_wdt_freq KA2000_TIMER_CLOCK
++
++
++static void ka2000_set_mode_t1(enum clock_event_mode mode,
++			    struct clock_event_device *evt)
++{
++	printk(KERN_INFO "set_mode_t1(%d)\n", mode);
++	switch (mode) {
++	case CLOCK_EVT_MODE_PERIODIC:
++		*TCNTB1 = ka2000_clockevent_t1_div - 1;
++		*TCON0 |= (T1_ENABLE | T1_AUTORELOAD);
++		*TCFG1 &= ~T1_ACK;  /* enable timer1 irq */
++		ka2000_timer1_mode = mode;
++		break;
++	case CLOCK_EVT_MODE_ONESHOT:
++		/* period set by 'set next_event' */
++		*TCON0 &= ~(T1_ENABLE | T1_AUTORELOAD);
++		ka2000_timer1_mode = mode;
++		break;
++	case CLOCK_EVT_MODE_RESUME:
++		*TCON0 |= T1_ENABLE;
++		break;
++	case CLOCK_EVT_MODE_SHUTDOWN:
++	case CLOCK_EVT_MODE_UNUSED:
++	default:
++		*TCON0 &= ~T1_ENABLE;
++		break;
++	}
++}
++
++static struct clock_event_device clockevent_ka2000_timer1 = {
++	.name		= "ka2000 timer1",
++	.features	= CLOCK_EVT_FEAT_ONESHOT | CLOCK_EVT_FEAT_PERIODIC,
++	.rating		= 200,
++	.set_mode	= ka2000_set_mode_t1,
++	.set_next_event	= ka2000_set_next_event_t1,
++	.irq		= IRQ_KA2000_TIMER1,
++};
++
++static struct irqaction ka2000_timer1_irq = {
++	.name		= "timer1",
++	.flags		= IRQF_DISABLED | IRQF_TIMER | IRQF_IRQPOLL,
++	.handler	= ka2000_timer1_interrupt,
++	.dev_id		= &clockevent_ka2000_timer1,
++};
++
++static u32 notrace ka2000_read_sched_clock(void)
++{
++	return ~*WDTCNT;
++}
++
++static cycle_t ka2000_clocksource_tcnto2_read(struct clocksource *c)
++{
++	return ~*TCNTO2;
++}
++
++static cycle_t ka2000_clocksource_wdtcnt_read(struct clocksource *c)
++{
++	return ~*WDTCNT;
++}
++
++void __init ka2000_clocksource_init(void)
++{
++	*WDTDAT = 0xffffffff;
++
++	clocksource_mmio_init(NULL, "TCNTO2", ka2000_clocksource_freq, 200, 16,
++			ka2000_clocksource_tcnto2_read);
++	clocksource_mmio_init(NULL, "WDTCNT", ka2000_wdt_freq, 300, 32,
++			ka2000_clocksource_wdtcnt_read);
++	setup_sched_clock(ka2000_read_sched_clock, 32, ka2000_wdt_freq);
++}
++
++void __init ka2000_clockevent_init(void)
++{
++	setup_irq(clockevent_ka2000_timer1.irq, &ka2000_timer1_irq);
++	clockevents_config_and_register(&clockevent_ka2000_timer1,
++					ka2000_clockevent_t1_freq, 0xf, 0xffff);
++}
++
++void __init ka2000_init_time(void)
++{
++	early_printk("ka2000_init_time HZ=%d div=%d freq=%d csfreq=%d\n", HZ,
++		ka2000_clockevent_t1_div,
++		ka2000_clockevent_t1_freq,
++		ka2000_clocksource_freq);
++
++	*TCFG0 = (ka2000_prescaler - 1) << T1T2_PRESC_SHIFT; /* T1/T2 prescaler */
++	*TCFG1 = T1_DIV2 | T2_DIV16;
++	*TCNTB1 = ka2000_clockevent_t1_div - 1;
++	*TCNTB2 = 0xffff;  /* reload value, count from 0xffff down to 0x0000 */
++	barrier();
++	*TCON0 |= T1_LOAD;
++	*TCON1 |= T2_LOAD;
++	barrier();
++	*TCON0 &= ~T1_LOAD;
++	*TCON1 &= ~T2_LOAD;
++	*TCON1 |= (T2_ENABLE | T2_AUTORELOAD); /* enable T2 */
++	*TCFG1 |= T0_ACK|T1_ACK|T2_ACK;  /* disable timer irqs */
++
++	ka2000_clockevent_init();
++	ka2000_clocksource_init();
++}
++
+--- /dev/null
++++ b/arch/arm/mach-ka2000/spi.c
+@@ -0,0 +1,215 @@
++/*
++ * SPI driver for KeyASIC Ka2000 boards.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/spinlock.h>
++#include <linux/workqueue.h>
++#include <linux/platform_device.h>
++
++#include <linux/spi/spi.h>
++#include <linux/spi/spi_bitbang.h>
++#include <linux/module.h>
++
++#include <asm/io.h>
++#include <asm/mach/irq.h>
++
++#include <mach/hardware.h>
++#include <mach/io.h>
++
++#include "ka2000.h"
++
++#define SSP_REG(x) KA2000_ADDR(KA_SSI_BASE + x)
++#define PRE	SSP_REG(0x00)
++#define CON	SSP_REG(0x04)
++#define   CPHA		(1 << 0)
++#define   CPOL		(1 << 1)
++#define   SMOD_PO	(0 << 6)
++#define   SMOD_INT	(1 << 6)
++#define   SMOD_DMA	(2 << 6)
++#define   ENSCK		(1 << 8)
++#define   CS0		(1 << 9)
++#define   MSTR		(1 << 10)
++#define   SPIMW		(1 << 11)
++#define STA	SSP_REG(0x08)
++#define   READY		(1 << 0)
++#define   TMOD_BYTE	(0 << 4)
++#define   TMOD_HWORD	(1 << 4)
++#define   TMOD_WORD	(2 << 4)
++#define TDAT	SSP_REG(0x0c)
++#define RDAT	SSP_REG(0x10)
++
++#define MULTE 					(0x1 << 14)
++#define MIMSK 					(0x1 << 13)
++#define TAGD  					(0x1 << 12)
++#define DRD   					(0x1 << 5)
++#define DTD   					(0x1 << 4)
++#define CSLV  					(0x1 << 3)
++#define KEEP  					(0x1 << 2)
++#define TMOD_MARK  				(0x2 << 4)
++
++struct ka2000_ssp_spi {
++	struct spi_bitbang bitbang;
++
++	void __iomem *membase;
++	unsigned char val;
++	u32 con;
++	struct ka2000_ssp_spi_info *info;
++	struct platform_device *dev;
++};
++
++static void ka2000_ssp_spi_wait_ready(struct ka2000_ssp_spi *sp)
++{
++	int timeout = 40000;
++	while((*STA & READY) == 0)
++	{
++		if (timeout-- <= 0) {
++			printk_once(KERN_INFO "%s timeout, STA=%08x\n", __func__, *STA);
++			break;
++		}
++		barrier();
++	}
++}
++
++static u32 ka2000_ssp_spi_txrx_mode0(struct spi_device *spi,
++				      unsigned nsecs, u32 word, u8 bits)
++{
++	struct ka2000_ssp_spi *sp = spi_master_get_devdata(spi->master);
++	u32 ret;
++	ka2000_ssp_spi_wait_ready(sp);
++	*TDAT = word;
++	ka2000_ssp_spi_wait_ready(sp);
++	ret = *RDAT;
++	printk_once(KERN_INFO "%s %02x %d: %02x\n", __func__, word, bits, ret);
++	return ret;
++}
++
++static u32 ka2000_ssp_spi_txrx_mode1(struct spi_device *spi,
++				      unsigned nsecs, u32 word, u8 bits)
++{
++	printk_once(KERN_INFO "%s\n", __func__);
++	return 0;
++}
++
++static u32 ka2000_ssp_spi_txrx_mode2(struct spi_device *spi,
++				      unsigned nsecs, u32 word, u8 bits)
++{
++	printk_once(KERN_INFO "%s\n", __func__);
++	return 0;
++}
++
++static u32 ka2000_ssp_spi_txrx_mode3(struct spi_device *spi,
++				      unsigned nsecs, u32 word, u8 bits)
++{
++	struct ka2000_ssp_spi *sp = spi_master_get_devdata(spi->master);
++	u32 ret;
++	ka2000_ssp_spi_wait_ready(sp);
++	*TDAT = word;
++	ka2000_ssp_spi_wait_ready(sp);
++	ret = *RDAT;
++	printk_once(KERN_INFO "%s %02x %d: %02x\n", __func__, word, bits, ret);
++	return ret;
++}
++
++static void ka2000_ssp_spi_chipselect(struct spi_device *dev, int value)
++{
++	struct ka2000_ssp_spi *sp = spi_master_get_devdata(dev->master);
++
++	if (value)
++		sp->con |= CS0;
++	else
++		sp->con &= ~CS0;
++	*CON = sp->con;
++}
++
++static int ka2000_ssp_spi_probe(struct platform_device *dev)
++{
++	struct resource	*r;
++	struct spi_master *master;
++	struct ka2000_ssp_spi *sp;
++	int ret;
++
++	master = spi_alloc_master(&dev->dev, sizeof(struct ka2000_ssp_spi));
++	if (master == NULL) {
++		dev_err(&dev->dev, "failed to allocate spi master\n");
++		ret = -ENOMEM;
++		goto err0;
++	}
++
++	sp = spi_master_get_devdata(master);
++
++	platform_set_drvdata(dev, sp);
++	sp->info = dev->dev.platform_data;
++
++	/* setup spi bitbang adaptor */
++	sp->bitbang.master = spi_master_get(master);
++	sp->bitbang.master->bus_num = 0;
++	sp->bitbang.master->num_chipselect = 1;
++	sp->bitbang.chipselect = ka2000_ssp_spi_chipselect;
++
++	sp->bitbang.txrx_word[SPI_MODE_0] = ka2000_ssp_spi_txrx_mode0;
++	sp->bitbang.txrx_word[SPI_MODE_1] = ka2000_ssp_spi_txrx_mode1;
++	sp->bitbang.txrx_word[SPI_MODE_2] = ka2000_ssp_spi_txrx_mode2;
++	sp->bitbang.txrx_word[SPI_MODE_3] = ka2000_ssp_spi_txrx_mode3;
++
++	r = platform_get_resource(dev, IORESOURCE_MEM, 0);
++	if (r == NULL) {
++		ret = -ENOENT;
++		goto err1;
++	}
++	sp->membase = ioremap(r->start, resource_size(r));
++	if (!sp->membase) {
++		ret = -ENXIO;
++		goto err1;
++	}
++	sp->val = 0;
++	*PRE = (192000000 / 30000000) - 1;
++	*CON = sp->con = SPIMW + MSTR + ENSCK + SMOD_PO + CS0 + CPOL + CPHA;
++	*STA = TMOD_BYTE;
++	printk(KERN_INFO "SPI: CON=%08x PRE=%08x STA=%08x\n", *CON, *PRE, *STA);
++
++	ret = spi_bitbang_start(&sp->bitbang);
++	if (ret < 0)
++		goto err2;
++
++	printk(KERN_INFO "Adding platform devices...\n");
++	if (sp->info) {
++		struct spi_board_info *flash = sp->info->flash_device;
++		printk(KERN_INFO "Adding flash chip %s\n", flash->modalias);
++		spi_new_device(master, flash);
++	}
++	return 0;
++
++err2:
++	iounmap(sp->membase);
++err1:
++	spi_master_put(sp->bitbang.master);
++err0:
++	return ret;
++}
++
++static int ka2000_ssp_spi_remove(struct platform_device *dev)
++{
++	struct ka2000_ssp_spi *sp = platform_get_drvdata(dev);
++
++	iounmap(sp->membase);
++	spi_bitbang_stop(&sp->bitbang);
++	spi_master_put(sp->bitbang.master);
++	return 0;
++}
++
++static struct platform_driver ka2000_ssp_spi_drv = {
++	.probe		= ka2000_ssp_spi_probe,
++	.remove		= ka2000_ssp_spi_remove,
++	.driver		= {
++		.name	= "ka2000_ssp_spi",
++		.owner	= THIS_MODULE,
++	},
++};
++module_platform_driver(ka2000_ssp_spi_drv);
+--- /dev/null
++++ b/arch/arm/mach-ka2000/ka2000-sdio.c
+@@ -0,0 +1,1106 @@
++/*
++ * KeyASIC KA2000 series software
++ *
++ * Copyright (C) 2013 KeyASIC.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++#include <linux/delay.h>
++#include <linux/highmem.h>
++#include <linux/io.h>
++#include <linux/dma-mapping.h>
++#include <linux/scatterlist.h>
++#include <linux/platform_device.h>
++#include <linux/clk.h>
++#include <linux/leds.h>
++#include <linux/mmc/host.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <asm/cacheflush.h>
++#include <asm/tlbflush.h>
++
++#include <mach/ka2000_define.h>
++#include <mach/io.h>
++#include "ka2000-sdio.h"
++
++#define IRQ_ENABLED 0
++#define BURST_SIZE_R 0x30	// 0x3f,0x33 : incr 16, 0x2f,0x23 : incr 16,  0x1f,0x13 : incr 4
++#define BURST_SIZE_W 0x30	// 0x3f,0x33 : incr 16, 0x2f,0x23 : incr 16,  0x1f,0x13 : incr 4
++#define SINGLE_BLOCK_READ_DMA 1
++#define SINGLE_BLOCK_WRITE_DMA 1
++
++#define MAX_BLOCK_COUNT 16
++
++#define DEBUG_BLOCKS
++
++#define sdio_word_write(a,v) 	__raw_writel(v, (void*)io_p2v(a))
++#define sdio_word_read(a)  		__raw_readl((void*)io_p2v(a))
++
++#define byte_write(a,v) 	__raw_writeb(v, (void*)io_p2v(a))
++#define byte_read(a)  		__raw_readb((void*)io_p2v(a))
++
++void trace_t1(char *msg, int line)
++{
++}
++
++#define trace_w trace_t1
++#define trace_r trace_t1
++#define trace_rw trace_t1	//trace_t
++
++#define FIFO_DONE		0x1
++#define DMA_DONE		(3<<0)
++#define DATA_BOUND		0x8
++#define TRANS_DONE		0x2
++#define TRANS_CARD_ERR  0x10
++#define TRANS_CARD_INT  0x20
++
++#define TRAN_READ  		(0<<1)
++#define TRAN_WRITE 		(1<<1)
++#define TRAN_START 		(1<<2)
++
++//#define Tran_Start            (1<<2)
++#define SDIO_ERR 		(1<<4)
++
++#define IRQMASK 1
++#define IRQUNMASK 0
++
++#define ERR_CMD_CRC_END_IND	(CMD_CRC_ERR | CMD_END_ERR | CMD_IND_ERR)
++#define ERR_ENABLE_ALL (0x6F)
++
++#define SDIO_SOFT_RESET (1 << 6)
++#define SDIO_HARD_RESET (1 << 7)
++
++#if 0
++//------------------------------------------------------------------------------
++static void dump_sdio_regs()
++{
++
++	printk
++	    ("\n------------------------- Dump All Registers -------------------\n");
++	printk("SDIO_CARD_BLOCK_SET_REG %08X\n",
++	       sdio_word_read(SDIO_CARD_BLOCK_SET_REG));
++	printk("SDIO_CTRL_REG           %08X\n", sdio_word_read(SDIO_CTRL_REG));
++	printk("SDIO_CMD_ARGUMENT_REG   %08X\n",
++	       sdio_word_read(SDIO_CMD_ARGUMENT_REG));
++	printk("SDIO_SPECIAL_CTRL_REG   %08X\n",
++	       sdio_word_read(SDIO_SPECIAL_CTRL_REG));
++	printk("SDIO_STATUS_REG         %08X\n",
++	       sdio_word_read(SDIO_STATUS_REG));
++	printk("SDIO_ERROR_ENABLE_REG   %08X\n\n",
++	       sdio_word_read(SDIO_ERROR_ENABLE_REG));
++	printk("SDIO_RESPONSE1_REG   %08X\n",
++	       sdio_word_read(SDIO_RESPONSE1_REG));
++	printk("SDIO_RESPONSE2_REG   %08X\n",
++	       sdio_word_read(SDIO_RESPONSE2_REG));
++	printk("SDIO_RESPONSE3_REG   %08X\n",
++	       sdio_word_read(SDIO_RESPONSE3_REG));
++	printk("SDIO_RESPONSE4_REG   %08X\n\n",
++	       sdio_word_read(SDIO_RESPONSE4_REG));
++	printk("SDIO_BUF_TRAN_RESP_REG  %08X\n",
++	       sdio_word_read(SDIO_BUF_TRAN_RESP_REG));
++	printk("SDIO_BUF_TRAN_CTRL_REG  %08X\n\n",
++	       sdio_word_read(SDIO_BUF_TRAN_CTRL_REG));
++
++	printk("SDIO_DMA_TCCH1_REG  %08X\n",
++	       sdio_word_read(SDIO_DMA_TCCH1_REG));
++	printk("SDIO_DMA_DACH1_REG  %08X\n",
++	       sdio_word_read(SDIO_DMA_DACH1_REG));
++	printk("SDIO_DMA_CTRCH1_REG %08X\n",
++	       sdio_word_read(SDIO_DMA_CTRCH1_REG));
++	printk("SDIO_DMA_INTS_REG   %08X\n", sdio_word_read(SDIO_DMA_INTS_REG));
++
++	printk
++	    ("----------------------------------------------------------------\n");
++
++}
++#endif
++
++//-------------------------------------------------------------------------------------------------
++static int sdio_wait_trans_done(void)
++{
++	int t = 100000;
++
++	while (t--) {
++		barrier();
++		if (sdio_word_read(SDIO_BUF_TRAN_RESP_REG) & 0x02)
++			break;
++
++		//printk("r wait trans %x\n", sdio_word_read(SDIO_BUF_TRAN_RESP_REG));
++	}
++
++	if (t <= 0) {
++		printk("Sdio trans timeout\n");
++	}
++
++	if ((sdio_word_read(SDIO_BUF_TRAN_RESP_REG) & 0x10) != 0x0) {
++		sdio_word_write(SDIO_BUF_TRAN_RESP_REG, 0x12);
++		if (sdio_word_read(SDIO_STATUS_REG) & 0x200000) {
++			//printk("endbit err!\n");  /* ignore end bit error */
++			sdio_word_write(SDIO_STATUS_REG,
++					sdio_word_read(SDIO_STATUS_REG) &
++					0xfffff);
++		} else {
++			printk("sdio trans err!");
++			goto fail;
++		}
++	} else {
++		sdio_word_write(SDIO_BUF_TRAN_RESP_REG, 0x02);
++	}
++
++	/* pass: */
++	return 0;
++fail:
++	return 1;
++}
++
++//-------------------------------------------------------------------------------------------------
++static inline void _sdio_disable_cmd52_abort_cmd53_(void)
++{
++	sdio_word_write(SDIO_SPECIAL_COMMAND_REG, 0x00);
++}
++
++static inline void _sdio_resume_next_block_rw_(void)
++{
++	sdio_word_write(SDIO_SPECIAL_COMMAND_REG, 0x02);
++}
++
++static void sdio_clear_dma_regs(void)
++{
++	sdio_word_write(SDIO_BUF_TRAN_RESP_REG, 0x1f);	//clear all flags
++	sdio_word_write(SDIO_DMA_INTS_REG, 1);	//clear interrupts
++	sdio_word_write(SDIO_DMA_INTS_REG, 2);
++	sdio_word_write(SDIO_BUF_TRAN_CTRL_REG, 0);
++	sdio_word_write(SDIO_DMA_CTRCH0_REG, 0);
++	sdio_word_write(SDIO_DMA_CTRCH1_REG, 0);
++}
++
++static void sdio_check_error(struct ka_sdio_host *host, struct mmc_request *mrq)
++{
++	u32 err_states = sdio_word_read(SDIO_STATUS_REG);
++
++	if (mrq->cmd != NULL) {
++		if (err_states & CMD_TIME_ERR) {
++			mrq->cmd->error = -ETIMEDOUT;
++			printk("CMD_TIMEOUT_ERR status=%08x\n", err_states);
++
++		} else if (err_states & ERR_CMD_CRC_END_IND) {
++			mrq->cmd->error = -EILSEQ;
++			printk("CMD_CRC_END_IND_ERR status=%08x\n", err_states);
++		}
++	}
++
++	if (mrq->cmd->data != NULL) {
++		if (err_states & (DATA_CRC_ERR | DATA_END_ERR)) {
++			mrq->cmd->data->error = -EILSEQ;
++			printk("DAT_CRC_END_ERR status=%08x\n", err_states);
++
++		}
++
++		if (mrq->cmd->data->error) {
++			//ka_sdio_data_done(host);
++		}
++	}
++}				//sdio_check_error
++
++static inline int sdio_check_resp(u32 reg, u32 mask, int timeout, int clean,
++				  int line)
++{
++	int timeoutcount = 0;
++
++	while (1) {
++		barrier();
++
++		if ((sdio_word_read(reg) & mask)) {
++			barrier();
++			if (clean) {
++				sdio_word_write(reg, mask);
++			}
++			return 0;
++		}
++
++		if (timeoutcount++ > timeout) {
++			if (timeout > 100)
++				printk
++				    ("wait reg %x mask %x val %x timeout at line %d\n",
++				     reg, mask, sdio_word_read(reg), line);
++			return -1;
++		}
++
++	}
++	return -1;
++}				//sdio_check_resp
++
++static inline int sdio_wait_bus_ready(void)
++{
++	return sdio_check_resp(SDIO_STATUS_REG, 0x0c00, 3000, 0, __LINE__);
++}
++
++static inline int sdio_wait_bus_idle(int timeout)
++{
++	/* wait until bus busy */
++	return sdio_check_resp(SDIO_STATUS_REG, 0x0400, timeout, 0, __LINE__);
++}
++
++static void sdio_reset_controller(u32 flag)
++{
++	sdio_clear_dma_regs();
++	sdio_word_write(SDIO_ERROR_ENABLE_REG, ERR_ENABLE_ALL);
++}
++
++void sdio_set_clock(void)
++{
++#define SDIO_CLOCK_PLL			(1 << 8)
++#define SDIO_CLOCK_ENABLE		(1 << 9)
++#define SDIO_CLOCK_B			(1 << 10)
++#define SDIO_CLOCK (SDIO_CLOCK_PLL | SDIO_CLOCK_ENABLE | SDIO_CLOCK_B)
++	sdio_word_write(SCU_CLK_SRC_CTL, sdio_word_read(SCU_CLK_SRC_CTL) | SDIO_CLOCK);	// should defined at clock.c
++}
++
++static void sdio_enable_all_error_flags(void)
++{
++	//setup SDIO error enable reg
++	sdio_word_write(SDIO_ERROR_ENABLE_REG, 0x6f);
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++
++static inline void _set_block_size_(unsigned int blocks, unsigned int blksz)
++{
++	u32 block_set;
++
++	if (blksz != 512)
++		block_set = ((blksz << 20) | blocks);
++	else
++		block_set = ((1 << 16) | blocks);
++
++	sdio_word_write(SDIO_CARD_BLOCK_SET_REG, block_set);
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++static inline void _trigger_read_dma_(void)
++{
++	sdio_word_write(SDIO_DMA_CTRCH1_REG, 0x0f | BURST_SIZE_R);	// 0x3f,0x33 : incr 16, 0x2f,0x23 : incr 16,  0x1f,0x13 : incr 4
++	sdio_word_write(SDIO_DMA_CTRCH1_REG, 0x03 | BURST_SIZE_R);
++}
++
++static inline void _trigger_read_transfer_from_bus_to_fifo_(unsigned int blocks)
++{
++	sdio_word_write(SDIO_BUF_TRAN_CTRL_REG, ((blocks << 16) | TRAN_START));
++}
++
++static inline void _set_read_dma_size_(unsigned int size)
++{
++	sdio_word_write(SDIO_DMA_TCCH1_REG, size);	/* Transfer Count */
++}
++
++static inline void _set_read_dma_address_(unsigned int addr)
++{
++	sdio_word_write(SDIO_DMA_DACH1_REG, addr);	/* Start Addr, DMA_WADDR */
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++/*
++
++1. set dma addr and size
++2. start transfer from bus to fifo
++3. start dma
++
++(2) and (3) don't have to care about sequence
++
++*/
++static inline void _start_read_dma_(u32 addr, int blocks, int blksz)
++{
++	_set_read_dma_address_(addr);
++	_set_read_dma_size_(blocks * blksz);
++	_trigger_read_transfer_from_bus_to_fifo_(blocks);
++	_trigger_read_dma_();
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++
++static inline void _trigger_write_dma_(void)
++{
++	sdio_word_write(SDIO_DMA_CTRCH0_REG, 0x0f | BURST_SIZE_W);
++	sdio_word_write(SDIO_DMA_CTRCH0_REG, 0x03 | BURST_SIZE_W);
++}
++
++static inline void _trigger_write_transfer_from_fifo_to_bus_(unsigned int
++							     blocks)
++{
++	sdio_word_write(SDIO_BUF_TRAN_CTRL_REG,
++			(blocks << 16) | TRAN_WRITE | TRAN_START);
++}
++
++static inline void _set_write_dma_size_(unsigned int size)
++{
++	sdio_word_write(SDIO_DMA_TCCH0_REG, size);	/* Transfer Count */
++}
++
++static inline void _set_write_dma_address_(unsigned int addr)
++{
++	sdio_word_write(SDIO_DMA_SACH0_REG, addr);	/* Start Addr, DMA_WADDR */
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++
++static inline void _start_write_dma_(u32 addr, int blocks, int blksz)
++{
++	_set_write_dma_address_(addr);
++	_set_write_dma_size_(blocks * blksz);
++	_trigger_write_dma_();
++	_trigger_write_transfer_from_fifo_to_bus_(blocks);
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++
++static inline void sdio_start_write_dma(u32 addr, int blocks, int blksz,
++					int blk_index)
++{
++#ifdef SINGLE_BLOCK_WRITE_DMA
++	_start_write_dma_(addr + (blk_index * blksz), 1, blksz);
++#else
++	if (blk_index == 0) {
++		_start_write_dma_(addr, blocks, blksz);
++	}
++#endif
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++
++static inline void sdio_start_read_dma(u32 addr, int blocks, int blksz,
++				       int blk_index)
++{
++#ifdef SINGLE_BLOCK_READ_DMA
++	_start_read_dma_(addr + (blk_index * blksz), 1, blksz);
++#else
++	if (blk_index == 0) {
++		_start_read_dma_(addr, blocks, blksz);
++	}
++#endif
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++static int sdio_start_data_write(struct mmc_request *mrq, struct mmc_data *data)
++{
++	u32 addr = sg_dma_address(data->sg);
++	int err = 0;
++	/* start data dma */
++	sdio_start_write_dma(addr, data->blocks, data->blksz, 0);
++
++	if (data->blocks == 1) {
++		err |=
++		    sdio_check_resp(SDIO_DMA_INTS_REG, 1, 10000, 1, __LINE__);
++	}
++
++	err |=
++	    sdio_check_resp(SDIO_BUF_TRAN_RESP_REG, FIFO_DONE, 50000, 1,
++			    __LINE__);
++
++	return err;
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++static int sdio_wait_single_block_write(void)
++{
++	int err = sdio_wait_trans_done();
++
++	/* wait until bus not busy */
++	sdio_wait_bus_idle(100);	//sdio_check_resp( SDIO_STATUS_REG, 0x0400, 100, 0, __LINE__);
++	return err;
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++static int sdio_multi_block_write(struct mmc_data *data)
++{
++	u32 addr = sg_dma_address(data->sg);
++	int i;
++	int err = 0;
++
++	/* before send cmd53, there is 1 block dma done, so i = 1 */
++	for (i = 1; i < data->blocks; i++) {
++		/* wait for previous block data transfer from bus */
++		err |=
++		    sdio_check_resp(SDIO_BUF_TRAN_RESP_REG, DATA_BOUND, 30000,
++				    1, __LINE__);
++
++		/* start current block dma */
++		sdio_start_write_dma(addr, data->blocks, data->blksz, i);
++
++		/* wait for data write to bus */
++		err |=
++		    sdio_check_resp(SDIO_BUF_TRAN_RESP_REG, FIFO_DONE, 100, 1,
++				    __LINE__);
++
++		/* resume bus transfer of current block */
++		_sdio_resume_next_block_rw_();
++
++		/* latest block wait for data transfer to sdio bus */
++		if (i == data->blocks - 1) {
++			err |= sdio_wait_trans_done();
++		}
++	}
++
++	/* wait until bus busy */
++	sdio_wait_bus_idle(10000);	//sdio_check_resp( SDIO_STATUS_REG, 0x0400, 10000, 0, __LINE__);
++	return err;
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++static int sdio_single_block_read(struct ka_sdio_host *host,
++				  struct mmc_request *mrq,
++				  struct mmc_data *data)
++{
++	int err = 0;
++
++	/* wait for data transfer from sdio bus */
++	err |= sdio_wait_trans_done();
++
++	/* start current block dma */
++	sdio_start_read_dma(sg_dma_address(data->sg), data->blocks, data->blksz,
++			    0);
++
++	/* wait for current block data move to fifo */
++	err |=
++	    sdio_check_resp(SDIO_BUF_TRAN_RESP_REG, FIFO_DONE, 50000, 1,
++			    __LINE__);
++
++	/* wait for current block dma done */
++	err |= sdio_check_resp(SDIO_DMA_INTS_REG, 0x2, 50000, 1, __LINE__);
++
++	return err;
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++static int sdio_multi_block_read(struct ka_sdio_host *host,
++				 struct mmc_request *mrq, struct mmc_data *data)
++{
++	int i;
++	u32 addr = sg_dma_address(data->sg);
++	int err = 0;
++
++	for (i = 0; i < data->blocks; i++) {
++		if (i < data->blocks - 1) {
++			/* wait for current block data transfer from bus */
++			err |=
++			    sdio_check_resp(SDIO_BUF_TRAN_RESP_REG, DATA_BOUND,
++					    30000, 1, __LINE__);
++
++			/* resume next block move from bus to fifo */
++			_sdio_resume_next_block_rw_();
++		} else {
++			/* latest block is different flow, no data bound, only transfer done */
++			err |= sdio_wait_trans_done();
++		}
++
++		/* start current block dma */
++		sdio_start_read_dma(addr, data->blocks, data->blksz, i);
++
++		/* wait for current block dma done */
++		err |=
++		    sdio_check_resp(SDIO_BUF_TRAN_RESP_REG, FIFO_DONE, 50000, 1,
++				    __LINE__);
++		err |= sdio_check_resp(SDIO_DMA_INTS_REG, 2, 1000, 1, __LINE__);
++	}
++
++	/* wait until bus not busy */
++	err |= sdio_wait_bus_idle(1000);	//sdio_check_resp( SDIO_STATUS_REG, 0x0400, 1000, 0, __LINE__);
++	return err;
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++static inline void sdio_prepare_data_dma(struct ka_sdio_host *host,
++					 struct mmc_request *mrq,
++					 struct mmc_data *data)
++{
++	int sg_cnt;
++
++	_set_block_size_(data->blocks, data->blksz);
++
++	BUG_ON(data->sg_len > 1);
++
++	sg_cnt = dma_map_sg(mmc_dev(host->mmc), data->sg, data->sg_len,
++			    (data->
++			     flags & MMC_DATA_READ) ? DMA_FROM_DEVICE :
++			    DMA_TO_DEVICE);
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++static inline int sdio_data_write(struct ka_sdio_host *host,
++				  struct mmc_request *mrq,
++				  struct mmc_command *cmd,
++				  struct mmc_data *data)
++{
++	if (data->blocks == 1) {
++		return sdio_wait_single_block_write();
++	}
++
++	return sdio_multi_block_write(data);
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++static inline int sdio_data_read(struct ka_sdio_host *host,
++				 struct mmc_request *mrq,
++				 struct mmc_command *cmd, struct mmc_data *data)
++{
++	if (data->blocks == 1) {
++		return sdio_single_block_read(host, mrq, data);
++	}
++
++	return sdio_multi_block_read(host, mrq, data);
++}
++
++//-------------------------------------------------------------------------------------------------------------------------------
++static inline void sdio_data_done(struct ka_sdio_host *host,
++				  struct mmc_request *mrq)
++{
++	struct mmc_data *data = mrq->data;
++
++	if (data->sg) {
++		dma_unmap_sg(mmc_dev(host->mmc), data->sg, data->sg_len,
++			     (data->
++			      flags & MMC_DATA_READ) ? DMA_FROM_DEVICE :
++			     DMA_TO_DEVICE);
++	}
++
++	if (data->error)
++		data->bytes_xfered = 0;
++	else
++		data->bytes_xfered = data->blksz * data->blocks;
++}
++
++//-------------------------------------------------------------------------------------------------
++static inline int sdio_wait_command_done(unsigned int cmd)
++{
++	int t = 5000;
++	int err = 0;
++	/* wait for command done flag */
++	while ((sdio_word_read(SDIO_BUF_TRAN_RESP_REG) & 0x04) != 0x04) {
++		barrier();
++		if (t-- <= 0) {
++			printk("cmd %d time out\n", cmd);
++			err = 1;
++			break;
++		}
++	}
++
++	/* check if error happened */
++	if ((sdio_word_read(SDIO_BUF_TRAN_RESP_REG) & 0x10) != 0) {
++		barrier();
++
++		/* clear error and command done flag, write to clear */
++		sdio_word_write(SDIO_BUF_TRAN_RESP_REG, 0x14);
++
++		printk("cmd %d error\n", cmd);
++		if (cmd != 8)
++			err = 1;
++	} else {
++		barrier();
++
++		/* clear command done flag, write to clear */
++		sdio_word_write(SDIO_BUF_TRAN_RESP_REG, 0x04);
++	}
++
++	return err;
++}
++
++static inline void sdio_store_command_response(struct mmc_command *cmd)
++{
++	if (cmd->flags & MMC_RSP_PRESENT) {
++		cmd->resp[0] = sdio_word_read(SDIO_RESPONSE1_REG);
++		printk(KERN_INFO "cmd %02x arg %04x resp %04x\n",
++			cmd->opcode,
++			cmd->arg,
++			cmd->resp[0]);
++	}
++}
++
++static inline u32 sdio_get_command_flag(struct ka_sdio_host *host,
++					struct mmc_command *cmd)
++{
++	u32 ctrl_set = 0;
++	ctrl_set |= (cmd->opcode << 16);
++
++	if (!(cmd->flags & MMC_RSP_PRESENT))
++		ctrl_set |= (0x0 << 10);
++	else
++		ctrl_set |= (0x2 << 10);
++
++	if (cmd->flags & MMC_RSP_CRC)
++		ctrl_set |= (1 << 13);
++	if (cmd->flags & MMC_RSP_OPCODE)
++		ctrl_set |= (1 << 12);
++
++	if (cmd->data != NULL) {
++		if (cmd->data->flags & MMC_DATA_READ)
++			ctrl_set |= (1 << 8);
++
++		ctrl_set |= (1 << 14);
++	}
++#if IRQ_ENABLED
++	ctrl_set |= (host->sdio_card_int_flag << 25);
++#endif
++	ctrl_set |= host->bus_width_4_flag;
++	ctrl_set |= (1 << 4);
++
++	return ctrl_set;
++}
++
++static inline int sdio_send_command(struct ka_sdio_host *host,
++				    struct mmc_request *mrq)
++{
++	u32 ctrl_set = 0;
++	struct mmc_command *cmd;
++
++	cmd = mrq->cmd;
++
++	if ((cmd->flags & MMC_RSP_136) && (cmd->flags & MMC_RSP_BUSY)) {
++		printk(KERN_ERR "%s: Unsupported response type!\n",
++		       mmc_hostname(host->mmc));
++		cmd->error = -EINVAL;
++		return -EINVAL;
++	}
++
++	sdio_word_write(SDIO_CMD_ARGUMENT_REG, cmd->arg);
++
++	ctrl_set = sdio_get_command_flag(host, cmd);
++	sdio_word_write(SDIO_CTRL_REG, ctrl_set);
++
++	if (sdio_wait_command_done(cmd->opcode))
++		sdio_check_error(host, mrq);
++
++	sdio_store_command_response(cmd);
++	return 0;
++}
++
++//------------------------------------------------------------------------------
++
++static void _debug_print_blocks_(struct mmc_request *mrq)
++{
++#ifdef DEBUG_BLOCKS
++	if (mrq->cmd->data && mrq->cmd->data->blocks > 1) {
++		printk("%s %d %d\n",
++		       (mrq->cmd->data->flags & MMC_DATA_WRITE) ? "W" : "R",
++		       mrq->cmd->data->blocks, mrq->cmd->data->blksz);
++	}
++#endif
++}
++
++//------------------------------------------------------------------------------
++
++static inline void sdio_request_with_data(struct ka_sdio_host *host,
++					  struct mmc_request *mrq)
++{
++	_debug_print_blocks_(mrq);
++
++	/* set dma map */
++	sdio_prepare_data_dma(host, mrq, mrq->cmd->data);
++
++	local_irq_disable();
++	if (mrq->cmd->data->flags & MMC_DATA_WRITE) {
++		/* write 1 block -> send command -> write the rest blocks */
++		sdio_start_data_write(mrq, mrq->cmd->data);
++		sdio_send_command(host, mrq);
++		sdio_data_write(host, mrq, mrq->cmd, mrq->cmd->data);
++	} else {
++		/* send read command -> read all blocks */
++		sdio_send_command(host, mrq);
++		sdio_data_read(host, mrq, mrq->cmd, mrq->cmd->data);
++	}
++	local_irq_enable();
++
++	/* set dma unmap */
++	sdio_data_done(host, mrq);
++
++}
++
++//------------------------------------------------------------------------------
++
++/* sdio request entry function */
++static void ka_sdio_request(struct mmc_host *mmc, struct mmc_request *mrq)
++{
++	struct ka_sdio_host *host = mmc_priv(mmc);
++
++	WARN_ON(host->mrq != NULL);	/* re-entry */
++
++	host->mrq = mrq;
++
++	sdio_wait_bus_ready();
++	sdio_clear_dma_regs();
++
++	_sdio_disable_cmd52_abort_cmd53_();
++
++	/* deal with request */
++	if (mrq->cmd->data) {
++		sdio_request_with_data(host, mrq);
++	} else {
++		/* command only, no data */
++		sdio_send_command(host, mrq);
++	}
++
++	/* check if any error at last */
++	if (sdio_word_read(SDIO_STATUS_REG) & 0xc0000) {
++		//printk("SDIO read ERR sts %x, tran %x, dma %x\n", sdio_word_read(SDIO_STATUS_REG), sdio_word_read(SDIO_BUF_TRAN_RESP_REG), sdio_word_read(SDIO_DMA_INTS_REG));
++		sdio_check_error(host, mrq);
++	}
++
++	/* check if error, do sdio reset */
++	if (mrq->cmd->error || (mrq->data && mrq->data->error)) {
++		sdio_reset_controller(SDIO_SOFT_RESET);
++	}
++
++	sdio_clear_dma_regs();
++
++	if (host->mrq == mrq)
++		host->mrq = NULL;
++
++	mmc_request_done(mmc, mrq);
++}
++
++//------------------------------------------------------------------------------
++static void ka_sdio_set_clock(struct ka_sdio_host *host, unsigned int clock)
++{
++	if (clock == 0)
++		return;
++
++	if (host->clock != clock)
++		clk_set_rate(host->clk_io, clock);
++	host->clock = clock;
++}
++
++//------------------------------------------------------------------------------
++static void ka_sdio_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
++{
++	struct ka_sdio_host *host = (struct ka_sdio_host *)mmc_priv(mmc);
++
++	if (host->flags & SDHCI_DEVICE_DEAD)
++		return;
++
++	//printk("ka_sdio_set_ios bus_wd %d, clock %d\n", ios->bus_width, ios->clock);
++
++	ka_sdio_set_clock(host, ios->clock);
++	if (ios && ios->bus_width == MMC_BUS_WIDTH_4)
++		host->bus_width_4_flag = 1;
++	else
++		host->bus_width_4_flag = 0;
++
++}
++
++//------------------------------------------------------------------------------
++
++#if IRQ_ENABLED
++//extern int sdio_irq_wakeup(struct mmc_host *mmc);
++
++static irqreturn_t ka_sdio_card_int_irq(int irq, void *dev_id)
++{
++	struct ka_sdio_host *host = (struct ka_sdio_host *)dev_id;
++
++	if (sdio_word_read(SDIO_BUF_TRAN_RESP_REG) & 0x20) {
++		sdio_word_write(SDIO_BUF_TRAN_RESP_REG, 0x20);
++		if (host->sdio_card_int_flag && host && host->mmc) {
++			//sdio_irq_wakeup(host->mmc);
++			host->sdio_card_int_flag = 0;
++		}
++	}
++
++	return IRQ_HANDLED;
++}
++#endif
++//------------------------------------------------------------------------------
++
++static void ka_sdio_enable_irq(struct mmc_host *mmc, int enable)
++{
++	struct ka_sdio_host *host;
++
++	//printk("ka_sdio_enable_sdio_irq (%s)\n", enable ? "enable" : "disable");
++	host = (struct ka_sdio_host *)mmc_priv(mmc);
++	host->sdio_card_int_flag = enable;
++
++}
++
++//------------------------------------------------------------------------------
++
++static const struct mmc_host_ops ka_sdio_mmc_ops = {
++	.request = ka_sdio_request,
++	.set_ios = ka_sdio_set_ios,
++	.enable_sdio_irq = ka_sdio_enable_irq,
++};
++
++//------------------------------------------------------------------------------
++// allocate/free/add/remove host
++//------------------------------------------------------------------------------
++struct ka_sdio_host *ka_sdio_alloc_host(struct device *dev)
++{
++	struct mmc_host *mmc;
++	struct ka_sdio_host *host;
++
++	WARN_ON(dev == NULL);
++
++	/* mmc private area first item will be ka_sdio_host */
++	mmc = mmc_alloc_host(sizeof(struct ka_sdio_host), dev);
++	if (!mmc)
++		return ERR_PTR(-ENOMEM);
++
++	host = mmc_priv(mmc);
++
++	host->mmc = mmc;
++	//host->mmc->sdio_type = 1;  //bit0: sdio, bit 1: switch;
++
++	spin_lock_init(&host->lock);
++	return host;
++}
++
++//------------------------------------------------------------------------------
++void ka_sdio_free_host(struct ka_sdio_host *host)
++{
++	mmc_free_host(host->mmc);
++}
++
++//------------------------------------------------------------------------------
++int ka_sdio_add_host(struct ka_sdio_host *host)
++{
++	struct mmc_host *mmc;
++
++	WARN_ON(host == NULL);
++	if (host == NULL)
++		return -EINVAL;
++
++	mmc = host->mmc;
++
++	mmc_add_host(mmc);
++#if 0
++	printk(KERN_INFO "%s: SDHCI controller on %s [%s] using %s%s\n",
++	       mmc_hostname(mmc), host->hw_name, dev_name(mmc_dev(mmc)),
++	       (host->flags & SDHCI_USE_ADMA) ? "A" : "",
++	       (host->flags & SDHCI_USE_DMA) ? "DMA" : "PIO");
++#endif
++	return 0;
++}
++
++//------------------------------------------------------------------------------
++
++void ka_sdio_remove_host(struct ka_sdio_host *host, int dead)
++{
++	if (dead) {
++		host->flags |= SDHCI_DEVICE_DEAD;
++
++		if (host->mrq) {
++			printk(KERN_ERR "%s: Controller removed during "
++			       " transfer!\n", mmc_hostname(host->mmc));
++
++			host->mrq->cmd->error = -ENOMEDIUM;
++			sdio_reset_controller(SDIO_SOFT_RESET);
++			host->mrq = NULL;
++		}
++	}
++
++	mmc_remove_host(host->mmc);
++}
++
++//------------------------------------------------------------------------------
++
++static int sdio_init_host_clock_settings(struct ka_sdio_host *host,
++					 struct device *dev)
++{
++	int ret = 0;
++	host->clk_io = clk_get(dev, "SDIOCLK");
++	if (IS_ERR(host->clk_io)) {
++		dev_err(dev, "failed to get io clock\n");
++		ret = PTR_ERR(host->clk_io);
++		return ret;
++	}
++
++	/* enable the local io clock and keep it running for the moment. */
++	clk_enable(host->clk_io);
++
++	host->clock = 12000000;
++
++#if KA2000_MHZ == 12
++	host->max_clk = KA2000_OSC_CLOCK;
++#else
++	host->max_clk = 24000000;	//50000000; //12000000;
++#endif
++	host->timeout_clk = host->max_clk / 1000;	//1000000;
++	return ret;
++}
++
++//------------------------------------------------------------------------------
++static void sdio_init_host_mmc_settings(struct ka_sdio_host *host)
++{
++	host->mmc->f_min = KA2000_OSC_CLOCK / 2;	//host->max_clk / 256;
++	host->mmc->f_max = host->max_clk;
++	if (host->mmc->f_min > host->mmc->f_max)
++		host->mmc->f_min = host->mmc->f_max;
++
++	host->mmc->ops = &ka_sdio_mmc_ops;
++
++	host->mmc->caps = MMC_CAP_4_BIT_DATA | MMC_CAP_NONREMOVABLE;
++	host->mmc->ocr_avail = MMC_VDD_33_34;
++	host->mmc->ios.bus_width = MMC_BUS_WIDTH_4;
++
++	//host->mmc->sdio_type = 1;
++
++	host->mmc->max_segs = 1;
++
++	host->mmc->max_req_size = MAX_BLOCK_COUNT * 512;
++	host->mmc->max_seg_size = host->mmc->max_req_size;
++	host->mmc->max_blk_size = 512;
++	host->mmc->max_blk_count = MAX_BLOCK_COUNT;
++
++}
++
++//------------------------------------------------------------------------------
++
++static int sdio_init_irq_settings(struct ka_sdio_host *host, struct device *dev)
++{
++	int ret = 0;
++#if IRQ_ENABLED
++	host->mmc->caps |= MMC_CAP_SDIO_IRQ;
++	ret =
++	    request_irq(IRQ_card_int, &ka_sdio_card_int_irq, IRQF_DISABLED,
++			"ka_sdio", host);
++	if (ret < 0) {
++		dev_err(dev, "request irq error\n");
++	}
++	printk("irq requested\n");
++#endif
++	return ret;
++}
++
++void sdio_enable_gpio0_power_on_sdio_wifi(void)
++{
++	printk("power-on SDIO\n");
++	sdio_word_write(0xa0005000, 3); /* set gpio output */
++	sdio_word_write(0xa0005008, 0); /* power off */
++	barrier();
++	udelay(200);
++	sdio_word_write(0xa0005008, 1); /* reset */
++	barrier();
++	udelay(200);
++	sdio_word_write(0xa0005008, 3);	/* power on */
++	barrier();
++	udelay(200);
++
++#if 0
++	printk(KERN_INFO "sdswitch bootval m1=%d m2=%d\n",
++		sdio_word_read(0xa000a000),
++		sdio_word_read(0xa000a004));
++	sdio_word_write(0xa000a000, 0);
++	udelay(200);
++	sdio_word_write(0xa000a004, 1);
++	udelay(200);
++	printk(KERN_INFO "sdswitch now m1=%d m2=%d\n",
++		sdio_word_read(0xa000a000),
++		sdio_word_read(0xa000a004));
++#endif
++}
++
++//------------------------------------------------------------------------------
++static int ka_sdio_probe(struct platform_device *pdev)
++{
++	struct ka_sdio_platdata *pdata = pdev->dev.platform_data;
++	struct device *dev = &pdev->dev;
++	struct ka_sdio_host *host;
++	int ret = 0;
++
++	printk(KERN_INFO "%s\n", __func__);
++
++	sdio_enable_gpio0_power_on_sdio_wifi();
++
++	if (pdata == NULL) {
++		dev_err(dev, "no device data specified\n");
++		return -ENOENT;
++	}
++
++	host = ka_sdio_alloc_host(dev);
++	if (IS_ERR(host)) {
++		dev_err(dev, "ka_sdio_alloc_host() failed\n");
++		return PTR_ERR(host);
++	}
++
++	platform_set_drvdata(pdev, host);
++
++	host->pdev = pdev;
++	host->pdata = pdata;
++
++	if (sdio_init_host_clock_settings(host, dev))
++		goto err_io_clk;
++
++	sdio_init_host_mmc_settings(host);
++	sdio_init_irq_settings(host, dev);
++	sdio_enable_all_error_flags();
++
++	/* add host to mmc stack and do mmc_add_host */
++	ret = ka_sdio_add_host(host);
++	if (ret) {
++		dev_err(dev, "ka_sdio_add_host() failed\n");
++		goto err_add_host;
++	}
++
++	printk(KERN_INFO "%s success!\n", __func__);
++	return 0;
++
++err_add_host:
++	if (host->clk_io) {
++		clk_disable(host->clk_io);
++		clk_put(host->clk_io);
++	}
++
++err_io_clk:
++	ka_sdio_free_host(host);
++	return ret;
++}
++
++static int ka_sdio_remove(struct platform_device *pdev)
++{
++	struct ka_sdio_host *host = platform_get_drvdata(pdev);
++
++	int dead = 0;
++	int timeout = 100000;
++	while (host->mrq != NULL && timeout--) {
++		schedule();
++	}
++
++	ka_sdio_remove_host(host, dead);
++	ka_sdio_free_host(host);
++
++	platform_set_drvdata(pdev, NULL);
++
++	return 0;
++}
++
++//------------------------------------------------------------------------------
++
++static struct platform_driver ka_sdio_driver = {
++	.probe = ka_sdio_probe,
++	.remove = ka_sdio_remove,
++	.suspend = NULL,
++	.resume = NULL,
++	.driver = {
++		   .owner = THIS_MODULE,
++		   .name = "ka2000_sdmci",
++		   },
++};
++
++//------------------------------------------------------------------------------
++/* defined at arm/mach-ka2000/clock.c */
++extern void ka2000_clk_wakeup(void);
++
++static int __init ka_sdio_init(void)
++{
++	return platform_driver_register(&ka_sdio_driver);
++}
++
++//------------------------------------------------------------------------------
++
++static void __exit ka_sdio_exit(void)
++{
++	platform_driver_unregister(&ka_sdio_driver);
++}
++
++//------------------------------------------------------------------------------
++
++module_init(ka_sdio_init);
++module_exit(ka_sdio_exit);
+--- /dev/null
++++ b/arch/arm/mach-ka2000/ka2000-sdio.h
+@@ -0,0 +1,70 @@
++#ifndef KA2000_SDIO_H
++#define KA2000_SDIO_H
++
++//------STATES
++#define CMD_TIME_ERR	(1<<16)
++#define CMD_CRC_ERR	(1<<17)
++#define CMD_END_ERR	(1<<18)
++#define CMD_IND_ERR	(1<<19)
++
++#define DATA_CRC_ERR	(1<<21)
++#define DATA_END_ERR	(1<<22)
++
++
++//------TRAN
++
++#define CMD_DONE	(1<<2)
++#define DATA_DONE	(1<<1)
++
++//------SDIO_DMA_INTS_REG
++
++#define CH0_INT		(1<<0)
++#define CH1_INT		(1<<1)
++
++struct ka_sdio_platdata {
++	unsigned int	max_width;
++	unsigned int	host_caps;
++	char		**clocks;
++	int		irq_num;
++};
++
++
++struct ka_sdio_host {
++	/* Internal data */
++	struct platform_device		*pdev;
++	struct resource			*ioarea;
++	struct ka_sdio_platdata		*pdata;
++	struct clk			*clk_io;
++
++	spinlock_t		lock;		/* Mutex */
++
++	struct mmc_host		*mmc;		/* MMC structure */
++	struct mmc_request	*mrq;		/* Current request */
++
++
++	unsigned int		cur_clk;
++	unsigned int		max_clk;	/* Max possible freq (MHz) */
++	unsigned int		timeout_clk;	/* Timeout freq (KHz) */
++#define SDHCI_USE_SDMA          (1<<0)          /* Host is SDMA capable */
++#define SDHCI_USE_ADMA          (1<<1)          /* Host is ADMA capable */
++#define SDHCI_REQ_USE_DMA       (1<<2)          /* Use DMA for this req. */
++#define SDHCI_DEVICE_DEAD       (1<<3)          /* Device unresponsive */
++	unsigned int 		flags;
++	unsigned int		clock;		/* Current clock (MHz) */
++	unsigned int 		power;		/* Current voltage */
++	unsigned int 	bus_width_4_flag;
++	unsigned int 	sdio_card_int_flag;
++	int seq;
++	int w_seq;
++	int r_seq;
++	int error;
++};
++
++struct ka_sdio_request {
++	struct mmc_host		*mmc;		/* MMC structure */
++	struct mmc_request	*mrq;		/* Current request */
++	struct mmc_command	*cmd;		/* Current command */
++	struct mmc_data		*data;		/* Current data request */
++};
++
++#endif
+--- a/arch/arm/mm/proc-arm926.S
++++ b/arch/arm/mm/proc-arm926.S
+@@ -100,6 +100,7 @@ ENDPROC(cpu_arm926_reset)
+  */
+ 	.align	10
+ ENTRY(cpu_arm926_do_idle)
++	/*mov	pc, lr				@ FIXME: halts cpu */
+ 	mov	r0, #0
+ 	mrc	p15, 0, r1, c1, c0, 0		@ Read control register
+ 	mcr	p15, 0, r0, c7, c10, 4		@ Drain write buffer
+@@ -108,7 +109,23 @@ ENTRY(cpu_arm926_do_idle)
+ 	orr	ip, r3, #PSR_F_BIT		@ is disabled
+ 	msr	cpsr_c, ip
+ 	mcr	p15, 0, r2, c1, c0, 0		@ Disable I cache
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
+ 	mcr	p15, 0, r0, c7, c0, 4		@ Wait for interrupt
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
+ 	mcr	p15, 0, r1, c1, c0, 0		@ Restore ICache enable
+ 	msr	cpsr_c, r3			@ Restore FIQ state
+ 	mov	pc, lr
+--- /dev/null
++++ b/arch/arm/mach-ka2000/clock.c
+@@ -0,0 +1,424 @@
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/list.h>
++#include <linux/spinlock.h>
++#include <linux/clk.h>
++#include <linux/clk-provider.h>
++#include <linux/io.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/platform_device.h>
++#include <linux/cpufreq.h>
++
++#include <asm/io.h>
++
++#include <mach/hardware.h>
++#include <mach/io.h>
++
++#include "ka2000.h"
++
++#define WDT_REG(x) KA2000_ADDR(WDT_BASE + x)
++#define WDTCON	WDT_REG(0x0)
++#define WDTDAT	WDT_REG(0x4)
++#define WDTCNT	WDT_REG(0x8)
++
++#define PWM_REG(x) KA2000_ADDR(PWM_BASE + x)
++#define TCFG0                PWM_REG(0x00)
++#define   T1T2_PRESC_MASK    0x00ff0000
++#define   T1T2_PRESC_SHIFT   16
++#define TCFG1                PWM_REG(0x04)
++#define   T2_ACK             0x02000000
++#define   T1_ACK             0x01000000
++#define   T0_ACK             0x00100000
++
++#define INTC_REG(x) KA2000_ADDR(INTC_BASE + x)
++#define INTC_REG64(x) KA2000_ADDR64(INTC_BASE + x)
++#define SRC	INTC_REG64(0x00)
++#define MODE	INTC_REG64(0x08)
++#define MASK	INTC_REG64(0x10)
++#define PEND	INTC_REG64(0x18)
++#define PRIO	INTC_REG64(0x20)
++#define PRO	INTC_REG64(0x28)
++#define CLEAR	INTC_REG(0x30)
++#define OFFSET	INTC_REG(0x34)
++
++#define UART_REG(x) KA2000_ADDR(KA_UART_BASE + x)
++#define LCR	UART_REG(0x0c)
++#define LCR	UART_REG(0x0c)
++#define LATCHL	UART_REG(0x00)
++#define LATCHH	UART_REG(0x04)
++
++#define CLOCK_REG(x) KA2000_ADDR(KA_SCU_BASE + x)
++#define CLK_SRC_CTL	CLOCK_REG(0x00)
++#define   HCLK_DIV_MASK		0x0000000e
++#define   HCLK_DIV_SHIFT	1
++#define   HCLK_DIV_WIDTH	3
++#define   ARM_SRC_MASK		0x00000001
++#define   ARM_SRC_WIDTH		1
++#define   ARM_SRC_SHIFT		0
++#define SRC_OSC		0
++#define SRC_PLL		1
++#define PLL_FREQ_SEL1	CLOCK_REG(0x04)
++#define   SPI_DIV_MASK		0x001f0000
++#define   SPI_DIV_SHIFT		16
++#define   ARM_DIV_MASK		0x0000001f
++#define   ARM_DIV_SHIFT		0
++#define PLL_FREQ_SEL2	CLOCK_REG(0x08)
++#define SYSTEM_CTL1	CLOCK_REG(0x0c)
++#define   PLL_MULT_MASK		0x00003f00
++#define   PLL_MULT_SHIFT	8
++#define   PLL_DIV_MASK		0x0000c000
++#define   PLL_DIV_SHIFT		14
++#define   PLL_POWERDOWN		0x00000002
++#define   PLL_RESET		0x00000001
++
++#define GET_MASKED(x, mask, shift) (((x) & mask) >> shift)
++#define GET_MASKED_OFS(x, mask, shift, ofs) ((((x) & mask) >> shift) + ofs)
++
++enum ka2000_clks {
++	CLK_OSC, CLK_PLL, CLK_ARM, CLK_HCLK, CLK_MAX
++};
++
++static struct clk *clocks[CLK_MAX];
++
++static DEFINE_SPINLOCK(clk_lock);
++
++static u32 ka2000_osc_clock = KA2000_OSC_CLOCK;
++
++u32 ka2000_get_clk(const char* name, u32 base, u32 osc, u32 *srcreg, int src_shift,
++		u32 *divreg, int div_shift, u32 div_mask)
++{
++	int div = GET_MASKED_OFS(*divreg, div_mask, div_shift, 1);
++	int src_sel = SRC_PLL;
++	if (srcreg)
++		src_sel = (*srcreg >> src_shift) & 1;
++
++	if (src_sel == SRC_OSC)
++		base = osc;
++
++	printk(KERN_INFO "%s clk=%dk base=%dk div=%d\n", name, base / div / 1000, base / 1000, div);
++
++	return base / div;
++}
++
++u32 ka2000_get_pll_clk(u32 osc_clk)
++{
++	int prediv = 1 << GET_MASKED(*SYSTEM_CTL1, PLL_DIV_MASK, PLL_DIV_SHIFT);
++	int mult = GET_MASKED_OFS(*SYSTEM_CTL1, PLL_MULT_MASK, PLL_MULT_SHIFT, 1);
++	int pll =  osc_clk / prediv * mult;
++	//printk(KERN_INFO "osc=%d pll prediv=%d mult=%d\n pll=%d", osc_clk, prediv, mult, pll);
++	if (*SYSTEM_CTL1 & (PLL_POWERDOWN || PLL_RESET))
++		return 0;
++	return pll;
++}
++
++static void set_uart_clk(u32 hclk, u32 baudrate)
++{
++	u32 divisor = (hclk / 16) / baudrate;
++	if (divisor > 0xffff) {
++		printk(KERN_INFO "Can't set baudrate %d, divisor %d is too high!\n",
++			baudrate, divisor);
++		return;
++	}
++
++	*LCR |= 0x80;
++	barrier();
++	*LATCHH = divisor >> 8;
++	*LATCHL = divisor & 0xff;
++	barrier();
++	*LCR &= ~0x80;
++	barrier();
++}
++
++static u32 hclk_osc = 24000000;
++static u32 hclk_pll = 96000000;
++
++void ka2000_pm_idle(void)
++{
++	/* FIXME: This is borken, see comment in setup.c */
++	struct ka2000_clk_state clk_state;
++	int switch_to_osc = 1;
++	u32 nwait = 0;
++
++	timer_debug = 1;
++	printk(KERN_INFO "%s %016llx %016llx %016llx\n", __func__, *SRC, *PEND, *MASK);
++//	set_uart_clk(hclk_pll, 38400);
++	/* save registers */
++	clk_state.ctl = *CLK_SRC_CTL;
++	clk_state.sys1 = *SYSTEM_CTL1;
++	barrier();
++
++	if (switch_to_osc) {
++		/* switch to OSC */
++		*CLK_SRC_CTL = 0x10c22610;
++		barrier();
++		*SYSTEM_CTL1 = 1;
++		barrier();
++	}
++
++#if 1
++	*WDTCON = 4;
++	barrier();
++#endif
++
++	asm(" mov	r0, #0\n\t"
++	"mrc	p15, 0, r1, c1, c0, 0		@ Read control register\n\t"
++	"mcr	p15, 0, r0, c7, c10, 4		@ Drain write buffer\n\t"
++	"bic	r2, r1, #1 << 12\n\t"
++	"mrs	r3, cpsr			@ Disable FIQs while Icache\n\t"
++	"orr	ip, r3, #0x40			@ is disabled\n\t"
++	"msr	cpsr_c, ip\n\t"
++	"mcr	p15, 0, r2, c1, c0, 0		@ Disable I cache\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"mcr	p15, 0, r0, c7, c0, 4		@ Wait for interrupt\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"nop\n\t"
++	"mcr	p15, 0, r1, c1, c0, 0		@ Restore ICache enable\n\t"
++	"msr	cpsr_c, r3			@ Restore FIQ state\n\t");
++
++	if (switch_to_osc) {
++		*SYSTEM_CTL1 = clk_state.sys1 | PLL_POWERDOWN | PLL_RESET;
++		barrier(); //udelay(1);
++		*SYSTEM_CTL1 = clk_state.sys1 | PLL_RESET;
++		barrier(); //udelay(200);
++		*SYSTEM_CTL1 = clk_state.sys1;
++		barrier();
++
++		while ((*CLK_SRC_CTL & 0x10000000) ==  0) {
++			nwait++;
++			barrier();
++		}
++
++		*CLK_SRC_CTL = clk_state.ctl;
++		barrier();
++	}
++
++	printk(KERN_INFO "%s %016llx %016llx %016llx (nwait=%d)\n", __func__, *SRC, *PEND, *MASK, nwait);
++	*WDTCON = 0;
++	barrier();
++}
++
++static void switch_pll(int prescaler, int multiplier, int hclk_divisor, int pll_en, int verbose)
++{
++	u32 prediv = 1 << prescaler;
++	u32 arm_clk = ka2000_osc_clock * multiplier / prediv;
++	u32 hclk = arm_clk / hclk_divisor;
++	u32 pllctl = (prescaler << PLL_DIV_SHIFT) |
++		((multiplier - 1) << PLL_MULT_SHIFT);
++	u32 srcctl, nwait;
++
++	BUG_ON(prescaler < 0 || prescaler > 3);
++	BUG_ON(multiplier < 1 || multiplier > 32);
++	BUG_ON(hclk_divisor < 1 || hclk_divisor > 8);
++
++	srcctl = *CLK_SRC_CTL & ~(HCLK_DIV_MASK|ARM_SRC_MASK);
++	srcctl |= SRC_PLL << ARM_SRC_SHIFT;
++	srcctl |= (hclk_divisor - 1) << HCLK_DIV_SHIFT;
++
++	if (verbose)
++		printk(KERN_INFO "Switching to %dKHz ARM clock, %dKHz HCLK, SRC_CTL=%08x PLL_CTL=%04x.\n",
++			arm_clk / 1000, hclk / 1000, srcctl, pllctl);
++
++	barrier();
++	*CLK_SRC_CTL &= ~(HCLK_DIV_MASK|ARM_SRC_MASK);
++	barrier();
++	if (verbose) {
++		set_uart_clk(ka2000_osc_clock, 38400);
++		printk(KERN_INFO "Now on OSC clock. CLK_SRC_CTL=%08x\n", *CLK_SRC_CTL);
++	}
++
++	*SYSTEM_CTL1 = pllctl | PLL_RESET | PLL_POWERDOWN;
++	udelay(1);
++	*SYSTEM_CTL1 = pllctl | PLL_RESET;
++	if (!pll_en)
++		return;
++
++	udelay(20);
++	*SYSTEM_CTL1 = pllctl;
++	barrier();
++
++	nwait = 0;
++	while ((*CLK_SRC_CTL & 0x10000000) ==  0) {
++		nwait++;
++		barrier();
++	}
++	if (verbose)
++		printk(KERN_INFO "Waited %d loops for PLL startup\n", nwait);
++	*CLK_SRC_CTL = srcctl;
++}
++
++static struct clk *ka2000_register_osc(void)
++{
++	return clk_register_fixed_rate(NULL, "OSC", NULL, CLK_IS_ROOT, ka2000_osc_clock);
++}
++
++static unsigned long ka2000_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
++{
++	return ka2000_get_pll_clk(parent_rate);
++}
++
++static struct clk_ops pll_hw_ops = {
++	.recalc_rate = ka2000_pll_recalc_rate,
++};
++static const char *pll_parent_names[] = {"OSC"};
++static const struct clk_init_data pll_hw_init_data = {
++	.name = "PLL",
++	.ops = &pll_hw_ops,
++	.parent_names = pll_parent_names,
++	.num_parents = ARRAY_SIZE(pll_parent_names),
++	.flags = CLK_GET_RATE_NOCACHE,
++};
++static struct clk_hw pll_hw = { .init = &pll_hw_init_data, };
++
++static const char *arm_parent_names[] = {"OSC", "PLL"};
++
++static void register_clocktree(void)
++{
++	clocks[CLK_OSC] = ka2000_register_osc();
++	clocks[CLK_PLL] = clk_register(NULL, &pll_hw);
++	clocks[CLK_ARM] = clk_register_mux(NULL, "ARM", arm_parent_names, ARRAY_SIZE(arm_parent_names),
++		CLK_GET_RATE_NOCACHE, CLK_SRC_CTL, ARM_SRC_SHIFT, ARM_SRC_WIDTH,
++		0 /* flags */, &clk_lock);
++	clocks[CLK_HCLK] = clk_register_divider(NULL, "HCLK", "ARM", CLK_GET_RATE_NOCACHE,
++		CLK_SRC_CTL, HCLK_DIV_SHIFT, HCLK_DIV_WIDTH,
++		0 /* flags */, &clk_lock);
++}
++
++void __init ka2000_early_init_clocks(void)
++{
++	printk(KERN_INFO "CLK_SRC_CTL=%08x\n", *CLK_SRC_CTL);
++	printk(KERN_INFO "PLL_FREQ_SEL1=%08x\n", *PLL_FREQ_SEL1);
++	printk(KERN_INFO "PLL_FREQ_SEL2=%08x\n", *PLL_FREQ_SEL2);
++	printk(KERN_INFO "SYSTEM_CTL1=%08x\n", *SYSTEM_CTL1);
++
++	*CLK_SRC_CTL &= 0xfff000ff;
++	*CLK_SRC_CTL |= 0x00066600;
++	printk(KERN_INFO "Switched SD/SDIO/SDSWITCH to OSC, CLK_SRC_CTL=%08x.\n", *CLK_SRC_CTL);
++	printk(KERN_INFO "Switching HCLK to OSC rate (power-save).\n");
++	/*
++	 * Having HCLK at OSC rate makes switching CPU frequency easier since
++	 * the timer uart and other HCLK-based rates can stay mostly independent
++	 * of ARM core clock rate.
++	 */
++	switch_pll(2, 32, 8, 1, 1);
++}
++
++void __init ka2000_init_clocks(void)
++{
++	register_clocktree();
++}
++
++static struct cpufreq_frequency_table ka2000_freqs_table[] ={
++	{ .frequency = KA2000_OSC_CLOCK * 8 / 1000, },
++	{ .frequency = KA2000_OSC_CLOCK / 1000, },
++	{ .frequency = CPUFREQ_TABLE_END, },
++};
++
++static int ka2000_verify_policy(struct cpufreq_policy *policy)
++{
++	return cpufreq_frequency_table_verify(policy, ka2000_freqs_table);
++}
++
++static unsigned int ka2000_cpufreq_get(unsigned int cpu)
++{
++	u32 osc_freq_khz = ka2000_osc_clock / 1000;
++	u32 pll_clk_khz = ka2000_get_pll_clk(ka2000_osc_clock) / 1000;
++	if (*CLK_SRC_CTL & ARM_SRC_MASK)
++		return pll_clk_khz;
++	return osc_freq_khz;
++}
++
++static int ka2000_set_target(struct cpufreq_policy *policy,
++			  unsigned int target_freq,
++			  unsigned int relation)
++{
++	struct cpufreq_freqs freqs;
++	unsigned long flags;
++	int i;
++
++	freqs.old = policy->cur;
++	freqs.new = target_freq;
++
++	for (i=0; ka2000_freqs_table[i].frequency != target_freq; i++) {
++		if (ka2000_freqs_table[i].frequency == CPUFREQ_TABLE_END)
++			return -EINVAL;
++	}
++
++	/*
++	 * Tell everyone what we're about to do...
++	 * you should add a notify client with any platform specific
++	 * Vcc changing capability
++	 */
++	cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
++
++	local_irq_save(flags);
++
++	if (target_freq == ka2000_osc_clock / 1000) {
++		switch_pll(2, 32, 8, 0, 0);
++	} else {
++		switch_pll(2, 32, 8, 1, 0);
++	}
++
++	local_irq_restore(flags);
++
++	/*
++	 * Tell everyone what we've just done...
++	 * you should add a notify client with any platform specific
++	 * SDRAM refresh timer adjustments
++	 */
++	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
++
++	return 0;
++}
++
++static int ka2000_cpufreq_init(struct cpufreq_policy *policy)
++{
++	/* set default policy and cpuinfo */
++	policy->cpuinfo.transition_latency = 1000; /* FIXME: 1 ms, assumed */
++	policy->cur = ka2000_cpufreq_get(0);   /* current freq */
++	policy->min = ka2000_osc_clock / 1000;
++	policy->max = policy->cur;
++
++	cpufreq_frequency_table_cpuinfo(policy, ka2000_freqs_table);
++
++	printk(KERN_INFO "KA2000 CPU frequency change support initialized (min=%d max=%d)\n",
++		policy->min, policy->max);
++
++	return 0;
++}
++
++static struct cpufreq_driver ka2000_cpufreq_driver = {
++	.verify = ka2000_verify_policy,
++	.target = ka2000_set_target,
++	.init = ka2000_cpufreq_init,
++	.get = ka2000_cpufreq_get,
++	.name = "KA2000",
++};
++
++static int __init ka2000_cpufreq_register(void)
++{
++	return cpufreq_register_driver(&ka2000_cpufreq_driver);
++}
++
++static void __exit ka2000_cpufreq_unregister(void)
++{
++	cpufreq_unregister_driver(&ka2000_cpufreq_driver);
++}
++
++module_init(ka2000_cpufreq_register);
++module_init(ka2000_cpufreq_unregister);
+--- /dev/null
++++ b/arch/arm/mach-ka2000/cpuidle.c
+@@ -0,0 +1,35 @@
++#include <linux/cpuidle.h>
++#include <linux/module.h>
++#include <asm/system_misc.h>
++#include <asm/proc-fns.h>
++
++#include "ka2000.h"
++
++static int ka2000_cpuidle_enter(struct cpuidle_device *dev,
++				struct cpuidle_driver *drv, int index)
++{
++	//printk(KERN_INFO "exit idle\n");
++	return index;
++}
++
++static struct cpuidle_driver ka2000_cpuidle_driver = {
++	.name		= "ka2000_cpuidle",
++	.owner		= THIS_MODULE,
++	.states[0] = {
++		.enter		= ka2000_cpuidle_enter,
++		.exit_latency	= 1,
++		.target_residency = 1,
++		.power_usage	= UINT_MAX,
++		.flags		= CPUIDLE_FLAG_TIME_VALID,
++		.name		= "KA2000 WFI",
++		.desc		= "KA2000 ARM WFI",
++	},
++	.state_count = 1,
++};
++
++static int __init ka2000_cpuidle_init(void)
++{
++	printk(KERN_INFO "%s", __func__);
++	return cpuidle_register(&ka2000_cpuidle_driver, NULL);
++}
++//device_initcall(ka2000_cpuidle_init);
+--- /dev/null
++++ b/arch/arm/mach-ka2000/mmc.c
+@@ -0,0 +1,996 @@
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/major.h>
++
++#include <linux/types.h>
++#include <linux/pci.h>
++#include <linux/interrupt.h>
++
++#include <linux/kernel.h>
++#include <linux/fs.h>
++#include <linux/errno.h>
++#include <linux/hdreg.h>
++#include <linux/kdev_t.h>
++#include <linux/blkdev.h>
++#include <linux/mutex.h>
++#include <linux/scatterlist.h>
++#include <linux/mmc/mmc.h>
++#include <linux/mmc/sdio.h>
++#include <linux/mmc/host.h>
++#include <linux/mmc/card.h>
++
++#include <linux/moduleparam.h>
++#include <linux/init.h>
++#include <linux/ioport.h>
++#include <linux/dma-mapping.h>
++#include <linux/delay.h>
++#include <linux/spinlock.h>
++#include <linux/timer.h>
++#include <linux/clk.h>
++
++#include <asm/io.h>
++#include <asm/irq.h>
++#include <asm/scatterlist.h>
++
++#include <asm/types.h>
++#include <asm/io.h>
++#include <asm/uaccess.h>
++#include <mach/io.h>
++
++#include "ka2000.h"
++
++#define DRIVER_NAME "ka2000_mmc"
++
++#define BUFFER_SIZE   16384
++#define KA2000_NUM_IRQS 7
++#define MAX_BLOCK_COUNT 1
++
++#define DEBUG_ALL_REG_WRITES 0
++#define DEBUG_READ_REG_WRITES 0
++#define DEBUG_WRITE_REG_WRITES 0
++#define DEBUG_ALL_STATE_TRANSITIONS 0
++#define DEBUG_READ_STATE_TRANSITIONS 0
++#define DEBUG_WRITE_STATE_TRANSITIONS 0
++
++#define INTC_REG(x) KA2000_ADDR(INTC_BASE + x)
++#define INTC_REG64(x) KA2000_ADDR64(INTC_BASE + x)
++#define INTC_SRC	INTC_REG64(0x00)
++#define INTC_MASK	INTC_REG64(0x10)
++#define INTC_PEND	INTC_REG64(0x18)
++#define INTC_CLEAR	INTC_REG(0x30)
++
++#define SDSW_REG(x) KA2000_ADDR(SDSW_BASE + x)
++#define M1_CTRL0	SDSW_REG(0x00)
++#define M2_CTRL0	SDSW_REG(0x04)
++
++#define CARD_BLOCK_SET_REG		0x00
++#define   BLK_SIZE_SHIFT		16
++#define   BLK_CNT_SHIFT			0
++#define CTRL_REG			0x04
++#define   CARD_INT_EN			(1 << 25)
++#define   INT_EN			(1 << 24)
++#define   OPCODE_SHIFT			16
++#define   ENABLE_DATA			(1 << 14)
++#define   CMD_RSP_CRC7			(1 << 13)
++#define   CMD_RSP_OPCODE		(1 << 12)
++#define   CMD_TYPE_RSPBUSY		(3 << 10)
++#define   CMD_TYPE_R4R5R6		(2 << 10)
++#define   CMD_TYPE_RSP136		(1 << 10)
++#define   CMD_TYPE_NORESP		(0 << 10)
++#define   XFER_MODE_MULTIPLE		(1 << 9) // speculative, ka2000-sdhc.ko sets this for cmd25
++#define   XFER_MODE_WRITE		(0 << 8)
++#define   XFER_MODE_READ		(1 << 8)
++#define   HARD_RESET			(1 << 7)
++#define   SOFT_RESET			(1 << 6)
++#define   FORCE_CLOCK			(1 << 4)
++#define   BUS_WIDTH_4			(1 << 0)
++#define CMD_ARGUMENT_REG		0x08
++#define SPECIAL_CTRL_REG		0x0C
++#define   RESUME_RW			(1 << 1)
++#define STATUS_REG			0x10
++#define   STATUS_ERROR_MASK		0xffff0000
++#define   STATUS_DATA_ENDBIT_ERR	(1 << 22)
++#define   STATUS_DATA_CRC_FAIL		(1 << 21)
++#define   STATUS_CMD_INDEX_ERR		(1 << 19)
++#define   STATUS_CMD_ENDBIT_ERR		(1 << 18)
++#define   STATUS_CMD_CRC_FAIL		(1 << 17)
++#define   STATUS_CMD_TIMEOUT		(1 << 16)
++#define ERROR_ENABLE_REG		0x14
++#define   ENABLE_DATA_END_BIT_ERR	(1 << 6)
++#define   ENABLE_DATA_CRC_ERR		(1 << 5)
++#define   ENABLE_UNKOWN			(1 << 4)  // bit can be set
++#define   ENABLE_CMD_INDEX_ERR		(1 << 3)
++#define   ENABLE_CMD_END_BIT_ERR	(1 << 2)
++#define   ENABLE_CMD_CRC_ERR		(1 << 1)
++#define   ENABLE_CMD_TIMEOUT_ERR	(1 << 0)
++#define   ENABLE_ALL_ERR		0x6f
++#define RESPONSE1_REG			0x18
++#define RESPONSE2_REG			0x1C
++#define RESPONSE3_REG			0x20
++#define RESPONSE4_REG			0x24
++#define BUF_TRAN_RESP_REG		0x28
++#define   FAKE_DMA_WRITE_STATUS		(1 << 16) // used internally
++#define   FAKE_DMA_READ_STATUS		(1 << 15) // used internally
++#define   CARD_INT_STATUS		(1 << 5)
++#define   CARD_ERR_STATUS		(1 << 4)
++#define   CARD_DATA_BOUND_STATUS	(1 << 3)
++#define   CARD_CMD_DONE_STATUS		(1 << 2)
++#define   XFER_DONE_STATUS		(1 << 1)
++#define   DATA_OK_STATUS		(1 << 0)
++#define BUF_TRAN_CTRL_REG		0x2C
++#define   TRAN_READ			(0<<1)
++#define   TRAN_WRITE			(1<<1)
++#define   TRAN_START			(1<<2)
++#define DMA_SACH0_REG			0x30
++#define DMA_TCCH0_REG			0x34
++#define DMA_CTRCH0_REG			0x38
++#define   CTRCH_NOBURST			(0 << 4)
++#define   CTRCH_BURST4			(1 << 4)
++#define   CTRCH_BURST8			(2 << 4)
++#define   CTRCH_BURST16			(3 << 4)
++#define   CTRCH_ENABLE			(1 << 3)
++#define   CTRCH_CNT_RELOAD		(1 << 2)
++#define   CTRCH_ADDR_INC		(1 << 1)
++#define   CTRCH_INT_EN			(1 << 0)
++#define DMA_DACH1_REG			0x40
++#define DMA_TCCH1_REG			0x44
++#define DMA_CTRCH1_REG			0x48
++#define DMA_INTS_REG			0x4C
++#define   CH0_INT			(1 << 0)
++#define   CH1_INT			(1 << 1)
++#define DMA_FIFO_STATUS_REG		0x50
++#define   DMA_FIFO_EMPTY		0x5
++
++enum irq_idx {
++	/* irqs in platform_data order */
++	idx_buf_tran_finish_irq = 0,
++	idx_data_bound_irq,
++	idx_tran_done_irq,
++	idx_cmd_done_irq,
++	idx_card_error_irq,
++	idx_dma_irq,
++	idx_card_irq,
++};
++
++enum irq_source {
++	source_none,
++	source_buf_tran_finish_irq,
++	source_data_bound_irq,
++	source_tran_done_irq,
++	source_cmd_done_irq,
++	source_card_error_irq,
++	source_dma_ch0_write_irq,
++	source_dma_ch1_read_irq,
++	source_card_irq,
++};
++
++enum cmd_state {
++	state_idle,
++	state_sent_cmd,
++	state_wait_tran_done,
++	state_wait_tran_finish,
++	state_wait_data_ok,
++	state_wait_read_dma_done,
++	state_wait_write_dma_done,
++	state_wait_err_irq,
++	state_recv_data,
++};
++
++struct ka2000_mmc_host;
++
++struct ka2000_mmc_host {
++	struct mmc_request	*mrq;
++	struct mmc_command	*cmd;
++	struct mmc_data		*data;
++	struct mmc_host		*mmc;
++	struct device		*dev;
++	unsigned char		id; /* KA2000 has 2 MMC blocks */
++	void __iomem		*virt_base;
++	unsigned int		phys_base;
++	int			irqs[KA2000_NUM_IRQS];
++	unsigned char		bus_width;
++	unsigned int		bus_clock;
++
++	unsigned int		sg_len;
++	unsigned		dma_done:1;
++	unsigned		dma_in_use:1;
++
++	void __iomem		*reg_base;
++	u32			reg_phys;
++
++	void (*handle_irq)(struct ka2000_mmc_host *host, enum irq_source irq_src);
++	enum cmd_state		cmd_state;
++	int			last_mmc_flags;
++	spinlock_t		request_lock;
++
++	u32			mmc_irq_state;
++};
++
++struct ka2000_irq {
++	const char *name;
++	irqreturn_t (*handler)(int irq, void *dev_id);
++	int is_masked;
++};
++
++/* State machine irq handlers. */
++static void ka2000_handle_irq_idle(struct ka2000_mmc_host *host, enum irq_source irq_src);
++static void ka2000_handle_irq_simplecmd(struct ka2000_mmc_host *host, enum irq_source irq_src);
++static void ka2000_handle_irq_readcmd(struct ka2000_mmc_host *host, enum irq_source irq_src);
++static void ka2000_handle_irq_writecmd(struct ka2000_mmc_host *host, enum irq_source irq_src);
++
++static inline void ka2000_mmc_writel(const struct ka2000_mmc_host *host, u32 reg, u32 value)
++{
++	if (DEBUG_ALL_REG_WRITES ||
++	    (DEBUG_READ_REG_WRITES && host->handle_irq == ka2000_handle_irq_readcmd) ||
++	    (DEBUG_WRITE_REG_WRITES && host->handle_irq == ka2000_handle_irq_writecmd) ||
++	     host->reg_phys == SDIO_BASE) {
++		u32 addr = host->reg_phys + reg;
++		printk(KERN_INFO "%s: mw %08x %08x\n", __func__, addr, value);
++	}
++	writel(value, host->reg_base + reg);
++}
++
++static inline u32 ka2000_mmc_readl(const struct ka2000_mmc_host *host, u32 reg)
++{
++	return readl(host->reg_base + reg);
++}
++
++static void ka2000_dump_regs(struct ka2000_mmc_host *host)
++{
++	int i;
++	for (i=0; i<0x60; i+= 0x10) {
++		printk(KERN_WARNING "mmc%d %02x: %08x %08x %08x %08x\n",
++			host->id, i,
++			ka2000_mmc_readl(host, i),
++			ka2000_mmc_readl(host, i+4),
++			ka2000_mmc_readl(host, i+8),
++			ka2000_mmc_readl(host, i+12));
++	}
++}
++
++static const char *ka2000_irq_src_str(enum irq_source irq_src)
++{
++	switch (irq_src) {
++	case source_dma_ch0_write_irq: return "dma_ch0_write";
++	case source_dma_ch1_read_irq: return "dma_ch1_read";
++	case source_buf_tran_finish_irq: return "buf_tran_finish";
++	case source_data_bound_irq: return "data_bound";
++	case source_tran_done_irq: return "tran_done";
++	case source_cmd_done_irq: return "cmd_done";
++	case source_card_error_irq: return "card_error";
++	case source_card_irq: return "card";
++	default: break;
++	}
++	return "unknown";
++}
++
++static const char* ka2000_cmd_state_str(enum cmd_state cmd_state)
++{
++	switch (cmd_state) {
++	case state_idle: return "idle";
++	case state_sent_cmd: return "sent_cmd";
++	case state_wait_tran_done: return "wait_tran_done";
++	case state_wait_tran_finish: return "wait_tran_finish";
++	case state_wait_data_ok: return "wait_data_ok";
++	case state_wait_read_dma_done: return "wait_read_dma_done";
++	case state_wait_write_dma_done: return "wait_write_dma_done";
++	case state_wait_err_irq: return "wait_err_irq";
++	case state_recv_data: return "recv_data";
++	default: break;
++	}
++	return "unknown";
++}
++
++static void ka2000_print_last_mmc_flags(struct ka2000_mmc_host *host)
++{
++	int flags = host->last_mmc_flags;
++	printk(KERN_INFO "mmc_flags=%08x\n", flags);
++	if (flags & MMC_RSP_PRESENT)
++		printk(KERN_INFO "  MMC_RSP_PRESENT\n");
++	if (flags & MMC_RSP_136)
++		printk(KERN_INFO "  MMC_RSP_136\n");
++	if (flags & MMC_RSP_BUSY)
++		printk(KERN_INFO "  MMC_RSP_BUSY\n");
++	if (flags & MMC_RSP_CRC)
++		printk(KERN_INFO "  MMC_RSP_CRC\n");
++	if (flags & MMC_RSP_OPCODE)
++		printk(KERN_INFO "  MMC_RSP_OPCODE\n");
++}
++
++static void ka2000_debug_state(struct ka2000_mmc_host *host, const char *prefix, enum irq_source irq_src)
++{
++	u32 tran_resp = ka2000_mmc_readl(host, BUF_TRAN_RESP_REG);
++	u32 tran_ctrl = ka2000_mmc_readl(host, BUF_TRAN_CTRL_REG);
++	u32 fifo_status = ka2000_mmc_readl(host, DMA_FIFO_STATUS_REG);
++	u32 block_set = ka2000_mmc_readl(host, CARD_BLOCK_SET_REG);
++	u32 status = ka2000_mmc_readl(host, STATUS_REG);
++	printk(KERN_INFO "%s: irq_source=%s irq_state=%08x cmd_state=%s\ntran_resp=%08x tran_ctrl=%08x fifo=%08x blocks=%08x status=%08x\n",
++		prefix, ka2000_irq_src_str(irq_src), host->mmc_irq_state,
++		ka2000_cmd_state_str(host->cmd_state),
++		tran_resp, tran_ctrl, fifo_status, block_set, status);
++	ka2000_print_last_mmc_flags(host);
++	ka2000_dump_regs(host);
++}
++
++static void ka2000_update_state(struct ka2000_mmc_host *host, enum cmd_state new_state)
++{
++	if (DEBUG_ALL_STATE_TRANSITIONS ||
++	    (DEBUG_READ_STATE_TRANSITIONS && host->handle_irq == ka2000_handle_irq_readcmd) ||
++	    (DEBUG_WRITE_STATE_TRANSITIONS && host->handle_irq == ka2000_handle_irq_writecmd) ||
++	     host->reg_phys == SDIO_BASE) {
++		printk(KERN_INFO "transition %s->%s\n",
++			ka2000_cmd_state_str(host->cmd_state),
++			ka2000_cmd_state_str(new_state));
++	}
++	host->cmd_state = new_state;
++}
++
++static void ka2000_mmc_start_command(struct ka2000_mmc_host *host, struct mmc_command *cmd)
++{
++	u32 ctl = CARD_INT_EN | INT_EN;
++
++	/*
++	printk(KERN_INFO "%s %d opcode=%04x arg=%08x flags=%08x\n", __func__, host->id,
++		cmd->opcode, cmd->arg, cmd->flags);
++	*/
++	if (host->bus_width == MMC_BUS_WIDTH_4)
++		ctl |= BUS_WIDTH_4;
++
++	if (host->bus_width == MMC_BUS_WIDTH_1 &&
++	    cmd->data && (cmd->data->flags & MMC_DATA_WRITE)) {
++		printk(KERN_WARNING "%s: bus width 1 not supported for writes (broken crc generator)\n",
++		       __func__);
++	}
++
++	ctl |= (cmd->opcode << OPCODE_SHIFT);
++
++	if (!(cmd->flags & MMC_RSP_PRESENT))
++		ctl |= CMD_TYPE_NORESP;
++	else if (cmd->flags & MMC_RSP_136)
++		ctl |= CMD_TYPE_RSP136;  /* R2 */
++	else if (cmd->flags & MMC_RSP_BUSY)
++		ctl |= CMD_TYPE_RSPBUSY;
++	else
++		ctl |= CMD_TYPE_R4R5R6;
++
++	if (cmd->flags & MMC_RSP_CRC)
++		ctl |= CMD_RSP_CRC7;
++	if (cmd->flags & MMC_RSP_OPCODE)
++		ctl |= CMD_RSP_OPCODE;
++
++	if (cmd->data != NULL) {
++		int is_read = cmd->data->flags & MMC_DATA_READ;
++		if (is_read) {
++			ctl |= XFER_MODE_READ;
++		}
++
++		ctl |= ENABLE_DATA;
++	}
++
++	ka2000_mmc_writel(host, CMD_ARGUMENT_REG, cmd->arg);
++	barrier();
++	ka2000_mmc_writel(host, CTRL_REG, ctl);
++	barrier();
++}
++
++static void ka2000_mmc_prepare_data(struct ka2000_mmc_host *host, struct mmc_request *req)
++{
++	struct mmc_data *data;
++	int is_read;
++	u32 block_reg;
++
++	if (!req || !req->cmd || !req->cmd->data)
++		return;
++
++	data = req->cmd->data;
++
++	BUG_ON(data->sg_len > 1);
++
++	is_read = (data->flags & MMC_DATA_READ) != 0;
++	if (is_read)
++		host->handle_irq = ka2000_handle_irq_readcmd;
++	else
++		host->handle_irq = ka2000_handle_irq_writecmd;
++
++	/* FIXME: Something is wrong with the reg description:
++	 * Using it as advertised in the sources results in the
++	 * data transfer being off by a factor of 16.
++	 * Testing writeable registery bits in u-boot:
++	 * KA2000#mw a000b000 ffffffff
++	 * KA2000#md a000b000
++	 * a000b000: 0fff03ff
++	 *
++	 * BLK_SIZE_SHIFT adjusted to 16 instead of 20.
++	 * '1' doesn't seem to mean 512 either.
++	 */
++	if (data->blksz == 512 ) {
++		block_reg = 0x100;
++	} else {
++		block_reg = data->blksz << BLK_SIZE_SHIFT;
++	}
++	if (host->reg_phys == SDIO_BASE) {
++		if (data->blksz == 512) {
++			block_reg = (1 << 16);
++		} else {
++			block_reg = data->blksz << 20;
++		}
++	}
++	block_reg |= data->blocks;
++	ka2000_mmc_writel(host, CARD_BLOCK_SET_REG, block_reg);
++
++	dma_map_sg(mmc_dev(host->mmc), data->sg, data->sg_len,
++	           is_read ? DMA_FROM_DEVICE : DMA_TO_DEVICE);
++
++	if (is_read) {
++		if (ka2000_mmc_readl(host, DMA_FIFO_STATUS_REG) != DMA_FIFO_EMPTY) {
++			printk(KERN_WARNING "dma fifo not empty: fifo=%08x tran=%08x blockset=%08x\n",
++				ka2000_mmc_readl(host, DMA_FIFO_STATUS_REG),
++				ka2000_mmc_readl(host, BUF_TRAN_CTRL_REG),
++				ka2000_mmc_readl(host, CARD_BLOCK_SET_REG));
++		}
++		if (ka2000_mmc_readl(host, BUF_TRAN_CTRL_REG) & 0xffff0000) {
++			printk(KERN_WARNING "tran ctrl blocks not 0: fifo=%08x tran=%08x blockset=%08x\n",
++				ka2000_mmc_readl(host, DMA_FIFO_STATUS_REG),
++				ka2000_mmc_readl(host, BUF_TRAN_CTRL_REG),
++				ka2000_mmc_readl(host, CARD_BLOCK_SET_REG));
++		}
++		ka2000_mmc_writel(host, DMA_DACH1_REG, sg_dma_address(data->sg)); /* Start Addr, DMA_WADDR */
++		ka2000_mmc_writel(host, DMA_TCCH1_REG, data->blocks * data->blksz); /* Transfer Count */
++	} else {
++		ka2000_mmc_writel(host, DMA_SACH0_REG, sg_dma_address(data->sg)); /* Start Addr, DMA_WADDR */
++		ka2000_mmc_writel(host, DMA_TCCH0_REG, data->blocks * data->blksz); /* Transfer Count */
++		barrier();
++
++		/* Don't need dma interrupt as cmd finishes after dma does. */
++		ka2000_mmc_writel(host, DMA_CTRCH0_REG, CTRCH_BURST16|/*CTRCH_INT_EN|*/CTRCH_ADDR_INC|CTRCH_CNT_RELOAD|CTRCH_ENABLE);
++		barrier();
++		ka2000_mmc_writel(host, DMA_CTRCH0_REG, CTRCH_BURST16|/*CTRCH_INT_EN|*/CTRCH_ADDR_INC);
++		barrier();
++		ka2000_mmc_writel(host, BUF_TRAN_CTRL_REG, ((data->blocks << 16) | TRAN_WRITE | TRAN_START));
++		barrier();
++	}
++}
++
++static void ka2000_mmc_unprepare_data(struct ka2000_mmc_host *host, struct mmc_request *req)
++{
++	struct mmc_data *data;
++	int is_read;
++
++	if (!req || !req->cmd || !req->cmd->data)
++		return;
++
++	data = req->cmd->data;
++	is_read = (data->flags & MMC_DATA_READ) != 0;
++	if (data->sg) {
++		dma_unmap_sg(mmc_dev(host->mmc), data->sg, data->sg_len,
++			     is_read ? DMA_FROM_DEVICE : DMA_TO_DEVICE);
++	}
++	if (is_read) {
++		ka2000_mmc_writel(host, DMA_CTRCH1_REG, 0);
++	} else {
++		ka2000_mmc_writel(host, DMA_CTRCH0_REG, 0);
++	}
++}
++
++static void ka2000_sdsw_start_request_hook(struct ka2000_mmc_host *host)
++{
++	/* Switch to master 2 (SoC) */
++	*M1_CTRL0 = 0;
++	barrier();
++	*M2_CTRL0 = 1;
++	barrier();
++}
++
++static void ka2000_sdsw_end_request_hook(struct ka2000_mmc_host *host)
++{
++	/* Switch back to master 1 (cardreader/host) */
++	*M1_CTRL0 = 1;
++	barrier();
++	*M2_CTRL0 = 0;
++	barrier();
++}
++
++static void ka2000_mmc_request(struct mmc_host *mmc, struct mmc_request *req)
++{
++	struct ka2000_mmc_host *host = mmc_priv(mmc);
++	unsigned long flags;
++
++	BUG_ON(host->mrq != NULL);
++	BUG_ON(!req);
++
++	if (host->reg_phys == SDR_BASE) {
++		ka2000_sdsw_start_request_hook(host);
++	}
++
++	host->mrq = req;
++	host->cmd = req->cmd;
++	host->data = req->data;
++	host->last_mmc_flags = req->cmd->flags;
++
++	host->handle_irq = ka2000_handle_irq_simplecmd;
++
++	spin_lock_irqsave(&host->request_lock, flags);
++	host->mmc_irq_state = 0;
++
++	ka2000_mmc_prepare_data(host, req);
++	ka2000_update_state(host, state_sent_cmd);
++	ka2000_mmc_start_command(host, req->cmd);
++
++	spin_unlock_irqrestore(&host->request_lock, flags);
++}
++
++static void ka2000_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
++{
++	struct ka2000_mmc_host *host = mmc_priv(mmc);
++
++	host->bus_width = ios->bus_width;
++	host->bus_clock = ios->clock;
++}
++
++static int ka2000_mmc_get_ro(struct mmc_host *mmc)
++{
++	return 0;  /* No read-only switch available */
++}
++
++static const struct mmc_host_ops ka2000_mmc_ops = {
++	.request	= ka2000_mmc_request,
++	.set_ios	= ka2000_mmc_set_ios,
++	.get_ro		= ka2000_mmc_get_ro,
++};
++
++static void drain_read_dma(struct ka2000_mmc_host *host)
++{
++	char *test = host->virt_base;
++	int i, n = 0;
++	printk(KERN_INFO "%s: Trying to drain read dma channel\n", __func__);
++	ka2000_dump_regs(host);
++	while (ka2000_mmc_readl(host, DMA_FIFO_STATUS_REG) != DMA_FIFO_EMPTY) {
++		printk(KERN_WARNING "dma fifo not empty: fifo=%08x tran=%08x blockset=%08x\n",
++			ka2000_mmc_readl(host, DMA_FIFO_STATUS_REG),
++			ka2000_mmc_readl(host, BUF_TRAN_CTRL_REG),
++			ka2000_mmc_readl(host, CARD_BLOCK_SET_REG));
++		if (ka2000_mmc_readl(host, DMA_FIFO_STATUS_REG) == DMA_FIFO_EMPTY) {
++			printk(KERN_WARNING "now it's empty after all, delay was needed\n");
++			break;
++		}
++
++		memset(host->virt_base, 0x5a, 16);
++		dma_sync_single_for_device(host->dev, host->phys_base, 16, DMA_TO_DEVICE);
++		dma_sync_single_for_device(host->dev, host->phys_base, 16, DMA_FROM_DEVICE);
++
++		printk(KERN_INFO "Triggering transfer\n");
++		ka2000_mmc_writel(host, DMA_DACH1_REG, host->phys_base);
++		ka2000_mmc_writel(host, DMA_TCCH1_REG, 16); /* Transfer Count */
++		barrier();
++		ka2000_mmc_writel(host, DMA_CTRCH1_REG, CTRCH_BURST16|CTRCH_INT_EN|CTRCH_ADDR_INC|CTRCH_CNT_RELOAD|CTRCH_ENABLE);
++		barrier();
++		ka2000_mmc_writel(host, DMA_CTRCH1_REG, CTRCH_BURST16|CTRCH_INT_EN|CTRCH_ADDR_INC);
++		barrier();
++
++		n++;
++
++		printk(KERN_INFO "Waiting...\n");
++		while (ka2000_mmc_readl(host, DMA_INTS_REG) == 0)
++			barrier();
++
++		dma_sync_single_for_cpu(host->dev, host->phys_base, 16, DMA_TO_DEVICE);
++		dma_sync_single_for_cpu(host->dev, host->phys_base, 16, DMA_FROM_DEVICE);
++		for (i=0; i<16; i+=4) {
++			printk(KERN_INFO "%02x: %02x %02x %02x %02x\n", i,
++				 test[i], test[i+1], test[i+2], test[i+3]);
++		}
++
++		if (test[0] == 0x5a && test[1] == 0x5a && test[2] == 0x5a && test[3] == 0x5a)
++			break;
++	}
++	ka2000_dump_regs(host);
++
++	printk(KERN_INFO "Drained approx %d bytes!\n", 16 * n);
++}
++
++static void ka2000_finish_cmd(struct ka2000_mmc_host *host)
++{
++	u32 int_status = ka2000_mmc_readl(host, BUF_TRAN_RESP_REG);
++	u32 status = ka2000_mmc_readl(host, STATUS_REG);
++	struct mmc_command *cmd;
++
++	BUG_ON(!host->cmd);
++	cmd = host->cmd;
++
++	if (status & (STATUS_CMD_CRC_FAIL | STATUS_CMD_TIMEOUT |
++	              STATUS_CMD_INDEX_ERR | STATUS_CMD_ENDBIT_ERR)) {
++		printk(KERN_INFO "%s: card_err_status %08x %08x\n", __func__,
++			int_status, status);
++		if (status & (STATUS_CMD_CRC_FAIL |
++		              STATUS_CMD_INDEX_ERR |
++		              STATUS_CMD_ENDBIT_ERR))
++			cmd->error = -EILSEQ;
++		if (status & STATUS_CMD_TIMEOUT)
++			cmd->error = -ETIMEDOUT;
++	}
++
++	if (cmd->flags & MMC_RSP_PRESENT) {
++		if (cmd->flags & MMC_RSP_136) {
++			cmd->resp[0] = ka2000_mmc_readl(host, RESPONSE4_REG);
++			cmd->resp[1] = ka2000_mmc_readl(host, RESPONSE3_REG);
++			cmd->resp[2] = ka2000_mmc_readl(host, RESPONSE2_REG);
++			cmd->resp[3] = ka2000_mmc_readl(host, RESPONSE1_REG);
++			/*
++			printk(KERN_INFO "resp: %08x %08x %08x %08x\n",
++				cmd->resp[0], cmd->resp[1], cmd->resp[2], cmd->resp[3]);
++			*/
++		} else {
++			cmd->resp[0] = ka2000_mmc_readl(host, RESPONSE1_REG);
++			// printk(KERN_INFO "resp: %08x\n", cmd->resp[0]);
++		}
++	}
++}
++
++static void ka2000_finish_request(struct ka2000_mmc_host *host)
++{
++	BUG_ON(!host->mmc);
++	BUG_ON(!host->mrq);
++	mmc_request_done(host->mmc, host->mrq);
++	host->mrq = NULL;
++	host->data = NULL;
++	host->cmd = NULL;
++	host->mmc_irq_state = 0;
++	host->handle_irq = ka2000_handle_irq_idle;
++	ka2000_update_state(host, state_idle);
++
++	if (host->reg_phys == SDR_BASE) {
++		ka2000_sdsw_end_request_hook(host);
++	}
++}
++
++static void ka2000_handle_irq_idle(struct ka2000_mmc_host *host, enum irq_source irq_src)
++{
++	u32 tran_resp = ka2000_mmc_readl(host, BUF_TRAN_RESP_REG);
++	printk(KERN_WARNING "state=idle, but got interrupt? tran_resp=%08x\n", tran_resp);
++	ka2000_debug_state(host, "idle", irq_src);
++}
++
++static void ka2000_handle_irq_simplecmd(struct ka2000_mmc_host *host, enum irq_source irq_src)
++{
++	switch (host->mmc_irq_state) {
++	case (CARD_CMD_DONE_STATUS):
++		ka2000_finish_cmd(host);
++		ka2000_finish_request(host);
++		break;
++	default:
++		ka2000_debug_state(host, "simplecmd unexpected irq state", irq_src);
++		break;
++	}
++}
++
++static void ka2000_handle_irq_readcmd(struct ka2000_mmc_host *host, enum irq_source irq_src)
++{
++	u32 status = ka2000_mmc_readl(host, STATUS_REG);
++	struct mmc_data *data = host->data;
++	BUG_ON(!data);
++
++	/* Implements state machine for mmc/sd commands with read data phase. */
++	switch (host->mmc_irq_state) {
++	case CARD_CMD_DONE_STATUS:
++		/* need XFER_DONE_STATUS as well */
++		break;
++	case (CARD_CMD_DONE_STATUS | XFER_DONE_STATUS):
++		ka2000_mmc_writel(host, BUF_TRAN_CTRL_REG, ((data->blocks << 16) | TRAN_READ | TRAN_START));
++		barrier();
++		ka2000_mmc_writel(host, DMA_CTRCH1_REG, CTRCH_BURST16|CTRCH_INT_EN|CTRCH_ADDR_INC|CTRCH_CNT_RELOAD|CTRCH_ENABLE);
++		barrier();
++		ka2000_mmc_writel(host, DMA_CTRCH1_REG, CTRCH_BURST16|CTRCH_INT_EN|CTRCH_ADDR_INC);
++		barrier();
++		ka2000_update_state(host, state_wait_read_dma_done);
++		break;
++	case (CARD_CMD_DONE_STATUS | XFER_DONE_STATUS |
++	      DATA_OK_STATUS):
++		/* still need dma irq */
++		break;
++	case (CARD_CMD_DONE_STATUS | XFER_DONE_STATUS |
++	      FAKE_DMA_READ_STATUS):
++		/* still need data_ok irq */
++		break;
++	case (CARD_CMD_DONE_STATUS | XFER_DONE_STATUS |
++	      DATA_OK_STATUS | FAKE_DMA_READ_STATUS):
++		if (status & (STATUS_DATA_CRC_FAIL | STATUS_DATA_ENDBIT_ERR)) {
++			printk(KERN_INFO "%s: error status %08x\n", __func__, status);
++			data->error = -EILSEQ;
++		} else {
++			data->bytes_xfered += data->sg->length;
++		}
++
++		ka2000_mmc_unprepare_data(host, host->mrq);
++		barrier();
++
++		if (ka2000_mmc_readl(host, DMA_FIFO_STATUS_REG) != DMA_FIFO_EMPTY) {
++			printk(KERN_WARNING "dma fifo not empty: fifo=%08x tran=%08x blockset=%08x\n",
++				ka2000_mmc_readl(host, DMA_FIFO_STATUS_REG),
++				ka2000_mmc_readl(host, BUF_TRAN_CTRL_REG),
++				ka2000_mmc_readl(host, CARD_BLOCK_SET_REG));
++			drain_read_dma(host);
++		}
++		if (ka2000_mmc_readl(host, BUF_TRAN_CTRL_REG) & 0xffff0000) {
++			printk(KERN_WARNING "tran ctrl blocks not 0: fifo=%08x tran=%08x blockset=%08x\n",
++				ka2000_mmc_readl(host, DMA_FIFO_STATUS_REG),
++				ka2000_mmc_readl(host, BUF_TRAN_CTRL_REG),
++				ka2000_mmc_readl(host, CARD_BLOCK_SET_REG));
++		}
++
++		ka2000_mmc_writel(host, DMA_CTRCH1_REG, 0);
++		ka2000_finish_cmd(host);
++		ka2000_finish_request(host);
++		break;
++	default:
++		ka2000_debug_state(host, "readcmd unknown cmd_state", irq_src);
++		break;
++	}
++}
++
++static void ka2000_handle_irq_writecmd(struct ka2000_mmc_host *host, enum irq_source irq_src)
++{
++	u32 status = ka2000_mmc_readl(host, STATUS_REG);
++	struct mmc_data *data = host->data;
++	BUG_ON(!data);
++
++	/* Implements state machine for mmc/sd commands with write data phase. */
++	switch (host->mmc_irq_state) {
++	case (DATA_OK_STATUS | CARD_CMD_DONE_STATUS):
++		/* still need xfer_done */
++		break;
++	case (CARD_CMD_DONE_STATUS | DATA_OK_STATUS | XFER_DONE_STATUS):
++		ka2000_finish_cmd(host);
++		if (status & (STATUS_DATA_CRC_FAIL | STATUS_DATA_ENDBIT_ERR)) {
++			printk(KERN_INFO "%s: error status %08x\n", __func__, status);
++			//ka2000_print_last_mmc_flags(host);
++			data->error = -EILSEQ;
++		} else {
++			data->bytes_xfered += data->sg->length;
++		}
++		ka2000_mmc_writel(host, DMA_CTRCH0_REG, 0);
++		ka2000_mmc_unprepare_data(host, host->mrq);
++		ka2000_finish_request(host);
++
++		ka2000_mmc_writel(host, BUF_TRAN_RESP_REG, CARD_CMD_DONE_STATUS);
++		break;
++	default:
++		ka2000_debug_state(host, "writecmd unknown cmd_state", irq_src);
++		break;
++	}
++}
++
++static irqreturn_t ka2000_mmc_dma_irq(int irq, void *dev_id)
++{
++	struct ka2000_mmc_host *host = dev_id;
++	u32 dma_ints;
++	while ((dma_ints = ka2000_mmc_readl(host, DMA_INTS_REG)) == 0) {
++		barrier();
++		printk(KERN_WARNING "%s: dma irq source is 0?\n", __func__);
++	}
++	if (host->reg_phys == SDIO_BASE) {
++		printk(KERN_INFO "%s: %08x\n", __func__, dma_ints);
++	}
++	if (dma_ints & CH0_INT) {
++		host->mmc_irq_state |= FAKE_DMA_WRITE_STATUS;
++		host->handle_irq(host, source_dma_ch0_write_irq);
++	} else {
++		host->mmc_irq_state |= FAKE_DMA_READ_STATUS;
++		host->handle_irq(host, source_dma_ch1_read_irq);
++	}
++	ka2000_mmc_writel(host, DMA_INTS_REG, dma_ints);
++	return IRQ_HANDLED;
++}
++
++static void ka2000_ack_pending(struct ka2000_mmc_host *host, u32 mask)
++{
++	u64 ack_mask = 0;
++
++	if (mask & DATA_OK_STATUS)
++		ack_mask |= host->irqs[idx_buf_tran_finish_irq];
++	if (mask & CARD_DATA_BOUND_STATUS)
++		ack_mask |= host->irqs[idx_data_bound_irq];
++	if (mask & XFER_DONE_STATUS)
++		ack_mask |= host->irqs[idx_tran_done_irq];
++	if (mask & CARD_CMD_DONE_STATUS)
++		ack_mask |= host->irqs[idx_cmd_done_irq];
++	if (mask & CARD_ERR_STATUS)
++		ack_mask |= host->irqs[idx_card_error_irq];
++	if (mask & CARD_INT_STATUS)
++		ack_mask |= host->irqs[idx_card_irq];
++
++	*INTC_PEND = ack_mask;
++}
++
++static irqreturn_t ka2000_mmc_generic_irq(int irq, void *dev_id, u32 mask, enum irq_source irq_src)
++{
++	struct ka2000_mmc_host *host = dev_id;
++	u32 need_ack = ka2000_mmc_readl(host, BUF_TRAN_RESP_REG) & ~mask;
++	host->mmc_irq_state |= (mask | need_ack) & ~CARD_ERR_STATUS;
++	if (host->reg_phys == SDIO_BASE) {
++		printk(KERN_INFO "%s: %08x %08x\n", __func__, mask, need_ack);
++	}
++	host->handle_irq(host, irq_src);
++	/* Note: after handle_irq, mmc_irq_state can be 0 (from finish_request) */
++	/* ack on the mmc controller */
++	ka2000_mmc_writel(host, BUF_TRAN_RESP_REG, mask | need_ack);
++	/* ack on the interrupt controller */
++	if (need_ack)
++		ka2000_ack_pending(host, need_ack);
++	return IRQ_HANDLED;
++}
++
++static irqreturn_t ka2000_mmc_buf_tran_finish_irq(int irq, void *dev_id)
++{
++	return ka2000_mmc_generic_irq(irq, dev_id, DATA_OK_STATUS, source_buf_tran_finish_irq);
++}
++
++static irqreturn_t ka2000_mmc_data_bound_irq(int irq, void *dev_id)
++{
++	return ka2000_mmc_generic_irq(irq, dev_id, CARD_DATA_BOUND_STATUS, source_data_bound_irq);
++}
++
++static irqreturn_t ka2000_mmc_tran_done_irq(int irq, void *dev_id)
++{
++	return ka2000_mmc_generic_irq(irq, dev_id, XFER_DONE_STATUS, source_tran_done_irq);
++}
++
++static irqreturn_t ka2000_mmc_cmd_done_irq(int irq, void *dev_id)
++{
++	return ka2000_mmc_generic_irq(irq, dev_id, CARD_CMD_DONE_STATUS, source_cmd_done_irq);
++}
++
++static irqreturn_t ka2000_mmc_card_error_irq(int irq, void *dev_id)
++{
++	/* Note: Is masked since we always look at status bits anyway, */
++	BUG_ON(true);
++	return ka2000_mmc_generic_irq(irq, dev_id, CARD_ERR_STATUS, source_card_error_irq);
++}
++
++static irqreturn_t ka2000_mmc_card_irq(int irq, void *dev_id)
++{
++	return ka2000_mmc_generic_irq(irq, dev_id, CARD_INT_STATUS, source_card_irq);
++}
++
++static const struct ka2000_irq irq_handlers[] = {
++	{ .name = "buf_tran_finish", .handler = ka2000_mmc_buf_tran_finish_irq, .is_masked = 0 },
++	{ .name = "data_bound", .handler = ka2000_mmc_data_bound_irq, .is_masked = 0 },
++	{ .name = "tran_done", .handler = ka2000_mmc_tran_done_irq, .is_masked = 0 },
++	{ .name = "cmd_done", .handler = ka2000_mmc_cmd_done_irq, .is_masked = 0 },
++	{ .name = "card_error", .handler = ka2000_mmc_card_error_irq, .is_masked = 1 },
++	{ .name = "dma", .handler = ka2000_mmc_dma_irq, .is_masked = 0 },
++	{ .name = "card", .handler = ka2000_mmc_card_irq, .is_masked = 0 },
++};
++
++extern void sdio_enable_gpio0_power_on_sdio_wifi(void);
++
++static int ka2000_mmc_probe(struct platform_device *pdev)
++{
++	struct mmc_host *mmc;
++	struct ka2000_mmc_host *host = NULL;
++	struct resource *res;
++	int ret = 0;
++	int irqs[KA2000_NUM_IRQS];
++	int i;
++	dma_addr_t buf_addr;
++
++	sdio_enable_gpio0_power_on_sdio_wifi();
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	for (i=0; i<KA2000_NUM_IRQS; i++) {
++		irqs[i] = platform_get_irq(pdev, i);
++		if (res == NULL || irqs[i] < 0)
++			return -ENXIO;
++	}
++
++	mmc = mmc_alloc_host(sizeof(struct ka2000_mmc_host), &pdev->dev);
++	if (mmc == NULL) {
++		ret = -ENOMEM;
++		goto err_alloc_host_failed;
++	}
++
++	host = mmc_priv(mmc);
++	host->mmc = mmc;
++	host->handle_irq = ka2000_handle_irq_idle;
++
++	pr_info("mmc: Mapping %lX to %lX\n", (long)res->start, (long)res->end);
++	host->reg_phys = res->start;
++	host->reg_base = ioremap(res->start, resource_size(res));
++	if (host->reg_base == NULL) {
++		ret = -ENOMEM;
++		goto ioremap_failed;
++	}
++	host->virt_base = dma_alloc_coherent(&pdev->dev, BUFFER_SIZE,
++					     &buf_addr, GFP_KERNEL);
++
++	if (host->virt_base == 0) {
++		ret = -ENOMEM;
++		goto dma_alloc_failed;
++	}
++	host->phys_base = buf_addr;
++
++	host->id = pdev->id;
++	memcpy(host->irqs, irqs, sizeof(host->irqs));
++	pr_info("mmc: pdev id %d (%s), base irq %d, index %d\n",
++		host->id, host->id ? "sdio" : "sd", host->irqs[0], mmc->index);
++
++	mmc->ops = &ka2000_mmc_ops;
++	mmc->f_min = 400000;
++	mmc->f_max = 24000000;
++	mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34;
++	mmc->caps = MMC_CAP_4_BIT_DATA;
++
++	mmc->max_segs = 1;
++	mmc->max_blk_size = 2048;
++	mmc->max_blk_count = MAX_BLOCK_COUNT;
++	mmc->max_req_size = BUFFER_SIZE;
++	mmc->max_seg_size = mmc->max_req_size;
++
++	for (i=0; i<KA2000_NUM_IRQS; i++) {
++		int name_size = strlen(irq_handlers[i].name) + sizeof(DRIVER_NAME) + 3;
++		char *name = kzalloc(name_size, GFP_KERNEL);
++		if (!name) {
++			dev_err(&pdev->dev, "Failed kzalloc\n");
++			goto err_request_irq_failed;
++		}
++		snprintf(name, name_size, "%s%d_%s", DRIVER_NAME, host->id, irq_handlers[i].name);
++		/* FIXME: Leaking string memory */
++		ret = request_irq(host->irqs[i], irq_handlers[i].handler, 0, name, host);
++		if (ret) {
++			dev_err(&pdev->dev, "Failed IRQ Adding ka2000 MMC\n");
++			goto err_request_irq_failed;
++		}
++		if (irq_handlers[i].is_masked) {
++			printk(KERN_INFO "Masking %s irq\n", irq_handlers[i].name);
++			disable_irq(host->irqs[i]);
++		}
++	}
++
++	host->dev = &pdev->dev;
++	platform_set_drvdata(pdev, host);
++
++	ka2000_mmc_writel(host, CTRL_REG, HARD_RESET);
++	udelay(200);
++	ka2000_mmc_writel(host, ERROR_ENABLE_REG, ENABLE_ALL_ERR);
++	ka2000_update_state(host, state_idle);
++	spin_lock_init(&host->request_lock);
++
++	mmc_add_host(mmc);
++	return 0;
++
++err_request_irq_failed:
++	dma_free_coherent(&pdev->dev, BUFFER_SIZE, host->virt_base,
++			  host->phys_base);
++dma_alloc_failed:
++	iounmap(host->reg_base);
++ioremap_failed:
++	mmc_free_host(host->mmc);
++err_alloc_host_failed:
++	return ret;
++}
++
++static int ka2000_mmc_remove(struct platform_device *pdev)
++{
++	struct ka2000_mmc_host *host = platform_get_drvdata(pdev);
++	int i;
++
++	BUG_ON(host == NULL);
++
++	mmc_remove_host(host->mmc);
++	for (i=0; i<KA2000_NUM_IRQS; i++) {
++		free_irq(host->irqs[i], host);
++	}
++	dma_free_coherent(&pdev->dev, BUFFER_SIZE, host->virt_base, host->phys_base);
++	iounmap(host->reg_base);
++	mmc_free_host(host->mmc);
++	return 0;
++}
++
++static struct platform_driver ka2000_mmc_driver = {
++	.probe	= ka2000_mmc_probe,
++	.remove	= ka2000_mmc_remove,
++	.driver	= {
++		.name	= DRIVER_NAME,
++	},
++};
++
++module_platform_driver(ka2000_mmc_driver);
